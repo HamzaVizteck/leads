@@ -3,7 +3,14 @@ import { FileSpreadsheet, Loader, X } from "lucide-react";
 import { Lead } from "../types";
 import Papa from "papaparse";
 import { db } from "../config/firebaseConfig";
-import { collection, addDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+} from "firebase/firestore";
 
 const CLOUDINARY_UPLOAD_PRESET = "leads_csv";
 const CLOUDINARY_CLOUD_NAME = "dbnvspmk7";
@@ -27,6 +34,23 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const checkIfFileExists = async (filename: string) => {
+    const q = query(
+      collection(db, "csv_files"),
+      where("filename", "==", filename)
+    );
+    const querySnapshot = await getDocs(q);
+    return { exists: !querySnapshot.empty, docs: querySnapshot.docs };
+  };
+
+  const deleteAllPreviousCSVs = async () => {
+    const q = query(collection(db, "csv_files"));
+    const querySnapshot = await getDocs(q);
+    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+  };
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -37,6 +61,21 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
     setIsLoading(true);
     setShowSuccess(false);
     try {
+      // Check if file already exists
+      const { exists } = await checkIfFileExists(file.name);
+      if (exists) {
+        const confirmReplace = window.confirm(
+          "This CSV was previously uploaded. Do you want to replace the existing data with this file?"
+        );
+        if (!confirmReplace) {
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // First parse the CSV to validate it before uploading
       Papa.parse<CSVRow>(file, {
         header: true,
@@ -62,7 +101,10 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
             const data = await response.json();
             const csvUrl = data.secure_url;
 
-            // Save CSV URL to Firestore
+            // Delete all previous CSV records
+            await deleteAllPreviousCSVs();
+
+            // Save new CSV URL to Firestore
             try {
               await addDoc(collection(db, "csv_files"), {
                 url: csvUrl,
@@ -71,28 +113,43 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
               });
             } catch (firestoreError) {
               console.error("Firestore error:", firestoreError);
-              // Continue with import even if Firestore save fails
             }
 
             // Process the leads
             const leads: Lead[] = results.data
               .filter((row: CSVRow) => Object.values(row).some((val) => val))
-              .map((row: CSVRow, index: number) => ({
-                id: Date.now() + index,
-                name: row.name || "",
-                company: row.company || "",
-                email: row.email || "",
-                phone: row.phone || "",
-                status: row.status || "",
-                source: row.source || "",
-                industry: row.industry || "",
-                lastContact: new Date().toISOString().split("T")[0],
-                value: parseFloat(row.value) || 0,
-              }));
+              .map((row: CSVRow, index: number) => {
+                // Parse value field, handle different formats
+                let value = 0;
+                if (row.value) {
+                  // Remove currency symbols and commas
+                  const cleanValue = row.value.replace(/[$,]/g, "").trim();
+                  value = parseFloat(cleanValue);
+                  if (isNaN(value)) value = 0;
+                }
+
+                return {
+                  id: Date.now() + index,
+                  name: row.name || "",
+                  company: row.company || "",
+                  email: row.email || "",
+                  phone: row.phone || "",
+                  status: row.status || "",
+                  source: row.source || "",
+                  industry: row.industry || "",
+                  lastContact: new Date().toISOString().split("T")[0],
+                  value: value,
+                };
+              });
 
             onImport(leads);
+            setSuccessMessage(
+              exists
+                ? "CSV data replaced successfully!"
+                : "CSV imported successfully!"
+            );
             setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 5000); // Hide after 5 seconds
+            setTimeout(() => setShowSuccess(false), 5000);
 
             // Reset file input
             if (fileInputRef.current) {
@@ -107,18 +164,29 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
             // Process leads even if upload fails
             const leads: Lead[] = results.data
               .filter((row: CSVRow) => Object.values(row).some((val) => val))
-              .map((row: CSVRow, index: number) => ({
-                id: Date.now() + index,
-                name: row.name || "",
-                company: row.company || "",
-                email: row.email || "",
-                phone: row.phone || "",
-                status: row.status || "",
-                source: row.source || "",
-                industry: row.industry || "",
-                lastContact: new Date().toISOString().split("T")[0],
-                value: parseFloat(row.value) || 0,
-              }));
+              .map((row: CSVRow, index: number) => {
+                // Parse value field, handle different formats
+                let value = 0;
+                if (row.value) {
+                  // Remove currency symbols and commas
+                  const cleanValue = row.value.replace(/[$,]/g, "").trim();
+                  value = parseFloat(cleanValue);
+                  if (isNaN(value)) value = 0;
+                }
+
+                return {
+                  id: Date.now() + index,
+                  name: row.name || "",
+                  company: row.company || "",
+                  email: row.email || "",
+                  phone: row.phone || "",
+                  status: row.status || "",
+                  source: row.source || "",
+                  industry: row.industry || "",
+                  lastContact: new Date().toISOString().split("T")[0],
+                  value: value,
+                };
+              });
 
             onImport(leads);
           }
@@ -148,35 +216,33 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
         className="hidden"
         disabled={isLoading}
       />
-      <div className="flex flex-col space-y-2">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <Loader className="w-5 h-5 mr-2 text-gray-400 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="w-5 h-5 mr-2 text-gray-400" />
-          )}
-          {isLoading ? "Importing..." : "Import CSV"}
-        </button>
-
-        {showSuccess && (
-          <div
-            className="fixed top-4 right-4 flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
-            role="alert"
-          >
-            <span className="block sm:inline">CSV imported successfully!</span>
-            <button
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
-              onClick={() => setShowSuccess(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isLoading}
+        className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isLoading ? (
+          <Loader className="w-5 h-5 mr-2 text-gray-400 animate-spin" />
+        ) : (
+          <FileSpreadsheet className="w-5 h-5 mr-2 text-gray-400" />
         )}
-      </div>
+        {isLoading ? "Importing..." : "Import CSV"}
+      </button>
+
+      {showSuccess && (
+        <div
+          className="fixed top-4 right-4 z-50 flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg"
+          role="alert"
+        >
+          <span className="block sm:inline">{successMessage}</span>
+          <button
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={() => setShowSuccess(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

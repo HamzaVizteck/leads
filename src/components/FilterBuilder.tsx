@@ -26,6 +26,12 @@ type Props = {
     type: "string" | "number" | "all";
   }>;
   onDeleteSelected: () => void;
+  onAddCustomField: (field: {
+    key: keyof Lead;
+    label: string;
+    type: "string" | "number" | "all";
+  }) => void;
+  onRemoveCustomField: (key: keyof Lead) => void;
 };
 
 export const FilterBuilder: React.FC<Props> = ({
@@ -42,11 +48,17 @@ export const FilterBuilder: React.FC<Props> = ({
   customFields,
   operators,
   onDeleteSelected,
+  onAddCustomField,
+  onRemoveCustomField,
 }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [filterName, setFilterName] = useState("");
   const [showCustomFieldsModal, setShowCustomFieldsModal] = useState(false);
   const [showActiveFiltersModal, setShowActiveFiltersModal] = useState(false);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState<"string" | "number">(
+    "string"
+  );
 
   const handleSaveFilter = () => {
     if (filterName.trim()) {
@@ -58,6 +70,20 @@ export const FilterBuilder: React.FC<Props> = ({
       } else {
         alert("Please add at least one filter with a value");
       }
+    }
+  };
+
+  const handleAddCustomField = () => {
+    if (newFieldName.trim()) {
+      const key = newFieldName.toLowerCase().replace(/\s+/g, "_");
+      const newField = {
+        key: key as keyof Lead,
+        label: newFieldName.trim(),
+        type: newFieldType,
+      };
+
+      onAddCustomField(newField);
+      setNewFieldName("");
     }
   };
 
@@ -255,30 +281,50 @@ export const FilterBuilder: React.FC<Props> = ({
             {customFields.map((field) => (
               <div
                 key={field.key}
-                className="flex items-center justify-between py-2"
+                className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md hover:bg-gray-100"
               >
                 <span className="text-sm text-gray-700">{field.label}</span>
-                {!["id", "name", "company"].includes(field.key) && (
-                  <button
-                    onClick={() => {}}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  onClick={() => onRemoveCustomField(field.key)}
+                  className="text-red-600 hover:text-red-800 p-1 hover:bg-red-100 rounded"
+                  title="Delete field"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
-          <div className="pt-4 border-t border-gray-200">
-            <button
-              onClick={() => {}}
-              className="flex items-center text-sm text-green-600 hover:text-green-800"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Custom Field
-            </button>
+          <div className="pt-4 border-t border-gray-200 space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  placeholder="Enter field name..."
+                  className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                />
+                <select
+                  value={newFieldType}
+                  onChange={(e) =>
+                    setNewFieldType(e.target.value as "string" | "number")
+                  }
+                  className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                >
+                  <option value="string">Text</option>
+                  <option value="number">Number</option>
+                </select>
+                <button
+                  onClick={handleAddCustomField}
+                  disabled={!newFieldName.trim()}
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button
               onClick={() => setShowCustomFieldsModal(false)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"

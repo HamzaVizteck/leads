@@ -8,9 +8,12 @@ import {
 } from "react";
 import { Filter, Lead, SavedFilter } from "../types";
 import { leads as initialLeads } from "../data/leads";
+import { db } from "../config/firebaseConfig";
+import { collection, query, getDocs } from "firebase/firestore";
 
 const SAVED_FILTERS_KEY = "crm-saved-filters";
 const ACTIVE_FILTERS_KEY = "crm-active-filters";
+const LEADS_STORAGE_KEY = "crm-leads-data";
 
 interface LeadsContextType {
   leads: Lead[];
@@ -39,6 +42,13 @@ interface LeadsContextType {
     type: "string" | "number" | "all";
   }>;
   deleteLeads: (leadIds: string[]) => void;
+  addCustomField: (field: {
+    key: keyof Lead;
+    label: string;
+    type: "string" | "number" | "all";
+  }) => void;
+  removeCustomField: (key: keyof Lead) => void;
+  setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
 }
 
 const LeadsContext = createContext<LeadsContextType | undefined>(undefined);
@@ -52,7 +62,10 @@ export const useLeads = () => {
 };
 
 export const LeadsProvider = ({ children }: { children: ReactNode }) => {
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    const savedLeads = localStorage.getItem(LEADS_STORAGE_KEY);
+    return savedLeads ? JSON.parse(savedLeads) : initialLeads;
+  });
   const [filters, setFilters] = useState<Filter[]>([]);
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
     const saved = localStorage.getItem(SAVED_FILTERS_KEY);
@@ -64,18 +77,30 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  const customFields: Array<{
+  const [customFields, setCustomFields] = useState<
+    Array<{ key: keyof Lead; label: string; type: "string" | "number" | "all" }>
+  >([
+    { key: "name", label: "Name", type: "string" },
+    { key: "company", label: "Company", type: "string" },
+    { key: "email", label: "Email", type: "string" },
+    { key: "phone", label: "Phone", type: "string" },
+    { key: "status", label: "Status", type: "string" },
+    { key: "source", label: "Source", type: "string" },
+    { key: "industry", label: "Industry", type: "string" },
+    { key: "value", label: "Value", type: "number" },
+  ]);
+
+  const addCustomField = (field: {
     key: keyof Lead;
     label: string;
     type: "string" | "number" | "all";
-  }> = [
-    { key: "name", label: "Name", type: "string" },
-    { key: "company", label: "Company", type: "string" },
-    { key: "status", label: "Status", type: "string" },
-    { key: "industry", label: "Industry", type: "string" },
-    { key: "source", label: "Source", type: "string" },
-    { key: "value", label: "Value", type: "number" },
-  ];
+  }) => {
+    setCustomFields((prev) => [...prev, field]);
+  };
+
+  const removeCustomField = (key: keyof Lead) => {
+    setCustomFields((prev) => prev.filter((field) => field.key !== key));
+  };
 
   const operators: Array<{
     value: string;
@@ -101,6 +126,31 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     localStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeFilterIds));
   }, [activeFilterIds]);
+
+  useEffect(() => {
+    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+  }, [leads]);
+
+  // Check if there are any CSV files in Firebase
+  useEffect(() => {
+    const checkCSVFiles = async () => {
+      const q = query(collection(db, "csv_files"));
+      const querySnapshot = await getDocs(q);
+
+      // If no CSV files exist, reset to default data
+      if (querySnapshot.empty) {
+        setLeads(initialLeads);
+        localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(initialLeads));
+      }
+    };
+
+    checkCSVFiles();
+  }, []);
+
+  // Save leads to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+  }, [leads]);
 
   const addFilter = () => {
     const newFilter: Filter = {
@@ -155,7 +205,7 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const handleImportCSV = (importedLeads: Lead[]) => {
-    setLeads([...leads, ...importedLeads]);
+    setLeads(importedLeads);
   };
 
   const filteredLeads = useMemo(() => {
@@ -259,6 +309,9 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     customFields,
     operators,
     deleteLeads,
+    addCustomField,
+    removeCustomField,
+    setLeads,
   };
 
   return (

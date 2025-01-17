@@ -9,6 +9,7 @@ import { FilterBuilder } from "./FilterBuilder";
 import { Sidebar } from "./Sidebar";
 import { CSVImport } from "./CSVImport";
 import { EmailTemplate } from "./EmailTemplate";
+import { Lead } from "../types";
 
 export const LeadsManagement = () => {
   const [currentView, setCurrentView] = useState<string>("all");
@@ -31,6 +32,9 @@ export const LeadsManagement = () => {
     customFields,
     operators,
     deleteLeads,
+    addCustomField,
+    removeCustomField,
+    setLeads,
   } = useLeads();
 
   const handleDeleteLeads = () => {
@@ -48,6 +52,17 @@ export const LeadsManagement = () => {
     }
   };
 
+  const handleUpdateLead = (updatedLead: Lead) => {
+    const updatedLeads = leads.map((lead) =>
+      lead.id === updatedLead.id ? updatedLead : lead
+    );
+    setLeads(updatedLeads);
+  };
+
+  const handleDeleteLead = (leadId: number) => {
+    setLeads(leads.filter((lead) => lead.id !== leadId));
+  };
+
   const renderView = () => {
     switch (currentView) {
       case "grid":
@@ -63,6 +78,8 @@ export const LeadsManagement = () => {
           <LeadTable
             leads={filteredLeads}
             onSelectionChange={setSelectedLeads}
+            onUpdateLead={handleUpdateLead}
+            onDeleteLead={handleDeleteLead}
           />
         );
     }
@@ -122,6 +139,8 @@ export const LeadsManagement = () => {
                 customFields={customFields}
                 operators={operators}
                 onDeleteSelected={handleDeleteLeads}
+                onAddCustomField={addCustomField}
+                onRemoveCustomField={removeCustomField}
               />
             </div>
           )}
