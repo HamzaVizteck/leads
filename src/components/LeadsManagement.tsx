@@ -30,7 +30,23 @@ export const LeadsManagement = () => {
     handleImportCSV,
     customFields,
     operators,
+    deleteLeads,
   } = useLeads();
+
+  const handleDeleteLeads = () => {
+    if (selectedLeads.length === 0) return;
+
+    if (
+      window.confirm(
+        `Are you sure you want to delete ${selectedLeads.length} lead${
+          selectedLeads.length > 1 ? "s" : ""
+        }?`
+      )
+    ) {
+      deleteLeads(selectedLeads);
+      setSelectedLeads([]);
+    }
+  };
 
   const renderView = () => {
     switch (currentView) {
@@ -105,6 +121,7 @@ export const LeadsManagement = () => {
                 saveAndActivateFilter={saveAndActivateFilter}
                 customFields={customFields}
                 operators={operators}
+                onDeleteSelected={handleDeleteLeads}
               />
             </div>
           )}

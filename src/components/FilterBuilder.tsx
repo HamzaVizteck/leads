@@ -15,12 +15,17 @@ type Props = {
   onDeleteFilter: (id: string) => void;
   selectedLeads: string[];
   saveAndActivateFilter: (name: string, filters: Filter[]) => void;
-  customFields: Array<{ key: keyof Lead; label: string }>;
+  customFields: Array<{
+    key: keyof Lead;
+    label: string;
+    type: "string" | "number" | "all";
+  }>;
   operators: Array<{
     value: string;
     label: string;
-    type: "all" | "string" | "number";
+    type: "string" | "number" | "all";
   }>;
+  onDeleteSelected: () => void;
 };
 
 export const FilterBuilder: React.FC<Props> = ({
@@ -36,6 +41,7 @@ export const FilterBuilder: React.FC<Props> = ({
   saveAndActivateFilter,
   customFields,
   operators,
+  onDeleteSelected,
 }) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [filterName, setFilterName] = useState("");
@@ -96,6 +102,7 @@ export const FilterBuilder: React.FC<Props> = ({
           </button>
           <button
             disabled={selectedLeads.length === 0}
+            onClick={onDeleteSelected}
             className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
               selectedLeads.length === 0
                 ? "bg-gray-400 cursor-not-allowed"

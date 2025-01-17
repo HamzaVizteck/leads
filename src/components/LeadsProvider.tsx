@@ -38,6 +38,7 @@ interface LeadsContextType {
     label: string;
     type: "string" | "number" | "all";
   }>;
+  deleteLeads: (leadIds: string[]) => void;
 }
 
 const LeadsContext = createContext<LeadsContextType | undefined>(undefined);
@@ -233,6 +234,12 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     setFilters([]); // Clear current filters since we're saving them
   };
 
+  const deleteLeads = (leadIds: string[]) => {
+    setLeads((prevLeads) =>
+      prevLeads.filter((lead) => !leadIds.includes(lead.id.toString()))
+    );
+  };
+
   const value = {
     leads,
     filters,
@@ -251,6 +258,7 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     saveAndActivateFilter,
     customFields,
     operators,
+    deleteLeads,
   };
 
   return (
