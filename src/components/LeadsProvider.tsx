@@ -6,7 +6,13 @@ import {
   ReactNode,
   useMemo,
 } from "react";
-import { Filter, Lead, SavedFilter } from "../types";
+import {
+  Filter,
+  Lead,
+  SavedFilter,
+  FilterField,
+  NumberCondition,
+} from "../types";
 import { leads as initialLeads } from "../data/leads";
 import { db } from "../config/firebaseConfig";
 import { collection, query, getDocs } from "firebase/firestore";
@@ -22,12 +28,12 @@ interface LeadsContextType {
   activeFilterIds: string[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  addFilter: () => void;
+  addFilter: (field: FilterField & { filterName: string }) => void;
   removeFilter: (id: string) => void;
   updateFilter: (filter: Filter) => void;
   saveFilter: (name: string) => void;
-  toggleSavedFilter: (savedFilter: SavedFilter) => void;
-  deleteSavedFilter: (id: string) => void;
+  onApplyFilter: (savedFilter: SavedFilter) => void;
+  onDeleteFilter: (id: string) => void;
   handleImportCSV: (importedLeads: Lead[]) => void;
   filteredLeads: Lead[];
   saveAndActivateFilter: (name: string, filters: Filter[]) => void;
@@ -49,6 +55,8 @@ interface LeadsContextType {
   }) => void;
   removeCustomField: (key: keyof Lead) => void;
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
+  updateLead: (updatedLead: Lead) => void;
+  setFilters: (filters: Filter[]) => void;
 }
 
 const LeadsContext = createContext<LeadsContextType | undefined>(undefined);
@@ -66,7 +74,16 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     const savedLeads = localStorage.getItem(LEADS_STORAGE_KEY);
     return savedLeads ? JSON.parse(savedLeads) : initialLeads;
   });
-  const [filters, setFilters] = useState<Filter[]>([]);
+  const [filters, setFilters] = useState<Filter[]>(() => {
+    const savedFilters = localStorage.getItem(SAVED_FILTERS_KEY);
+    if (savedFilters) {
+      const parsed = JSON.parse(savedFilters);
+      // Get all filters from saved filters
+      const allFilters = parsed.flatMap((sf: SavedFilter) => sf.filters);
+      return allFilters;
+    }
+    return [];
+  });
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
     const saved = localStorage.getItem(SAVED_FILTERS_KEY);
     return saved ? JSON.parse(saved) : [];
@@ -152,23 +169,56 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
   }, [leads]);
 
-  const addFilter = () => {
+  const addFilter = (field: FilterField & { filterName: string }) => {
     const newFilter: Filter = {
       id: crypto.randomUUID(),
-      field: "name",
-      operator: "contains",
-      value: "",
+      name: field.label,
+      field: field.key,
+      type: field.type,
+      value:
+        field.value ||
+        (field.type === "number" ? [] : field.type === "dropdown" ? [] : ""),
     };
     setFilters((prev) => [...prev, newFilter]);
+
+    // Save as a new saved filter
+    const newSavedFilter: SavedFilter = {
+      id: crypto.randomUUID(),
+      name: field.filterName,
+      filters: [newFilter],
+    };
+    setSavedFilters((prev) => [...prev, newSavedFilter]);
+    setActiveFilterIds((prev) => [...prev, newSavedFilter.id]);
   };
 
   const removeFilter = (id: string) => {
     setFilters(filters.filter((f) => f.id !== id));
+    // Remove this filter from saved filters if it exists
+    setSavedFilters((prev) =>
+      prev.filter((sf) => !sf.filters.some((f) => f.id === id))
+    );
+    setActiveFilterIds((prev) =>
+      prev.filter(
+        (activeId) =>
+          !savedFilters
+            .find((sf) => sf.id === activeId)
+            ?.filters.some((f) => f.id === id)
+      )
+    );
   };
 
   const updateFilter = (updatedFilter: Filter) => {
     setFilters((prev) =>
       prev.map((f) => (f.id === updatedFilter.id ? updatedFilter : f))
+    );
+    // Update the filter in saved filters if it exists
+    setSavedFilters((prev) =>
+      prev.map((sf) => ({
+        ...sf,
+        filters: sf.filters.map((f) =>
+          f.id === updatedFilter.id ? updatedFilter : f
+        ),
+      }))
     );
   };
 
@@ -209,63 +259,63 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const filteredLeads = useMemo(() => {
-    // Get all active filters (both current and saved)
-    const activeFilters = [
-      ...savedFilters
-        .filter((sf) => activeFilterIds.includes(sf.id))
-        .flatMap((sf) => sf.filters),
-      ...filters.filter((f) => f.value.trim() !== ""), // Include current filters that have a value
-    ];
-
     return leads.filter((lead) => {
+      // First apply search query across all fields
       const matchesSearch =
         searchQuery === "" ||
         Object.values(lead).some((value) =>
           String(value).toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-      const matchesFilters =
-        activeFilters.length === 0 ||
-        activeFilters.every((filter) => {
-          const value = lead[filter.field];
-          const filterValue = filter.value;
+      // Then apply filters
+      const matchesFilters = filters.every((filter) => {
+        const value = lead[filter.field];
 
-          if (filter.field === "value") {
+        if (filter.type === "search") {
+          const searchValue = filter.value as string;
+          return (
+            searchValue === "" ||
+            String(value).toLowerCase().includes(searchValue.toLowerCase())
+          );
+        }
+
+        if (filter.type === "dropdown") {
+          const selectedValues = filter.value as string[];
+          return (
+            selectedValues.length === 0 ||
+            selectedValues.includes(String(value))
+          );
+        }
+
+        if (filter.type === "number") {
+          const conditions = filter.value as NumberCondition[];
+          if (conditions.length === 0) return true;
+
+          return conditions.every((condition) => {
             const numValue = Number(value);
-            const numFilterValue = Number(filterValue);
-
-            switch (filter.operator) {
-              case "greater":
-                return numValue > numFilterValue;
-              case "greaterEqual":
-                return numValue >= numFilterValue;
-              case "less":
-                return numValue < numFilterValue;
-              case "lessEqual":
-                return numValue <= numFilterValue;
-              case "equals":
-                return numValue === numFilterValue;
+            switch (condition.operator) {
+              case "=":
+                return numValue === condition.value;
+              case ">":
+                return numValue > condition.value;
+              case "<":
+                return numValue < condition.value;
+              case ">=":
+                return numValue >= condition.value;
+              case "<=":
+                return numValue <= condition.value;
               default:
                 return true;
             }
-          }
+          });
+        }
 
-          if (filter.operator === "contains") {
-            return String(value)
-              .toLowerCase()
-              .includes(filterValue.toLowerCase());
-          }
-
-          if (filter.operator === "equals") {
-            return String(value).toLowerCase() === filterValue.toLowerCase();
-          }
-
-          return true;
-        });
+        return true;
+      });
 
       return matchesSearch && matchesFilters;
     });
-  }, [filters, savedFilters, activeFilterIds, leads, searchQuery]);
+  }, [leads, filters, searchQuery]);
 
   const saveAndActivateFilter = (name: string, currentFilters: Filter[]) => {
     const filtersToSave = currentFilters.map((filter) => ({
@@ -290,6 +340,12 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const updateLead = (updatedLead: Lead) => {
+    setLeads((prev) =>
+      prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
+    );
+  };
+
   const value = {
     leads,
     filters,
@@ -301,8 +357,8 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     removeFilter,
     updateFilter,
     saveFilter,
-    toggleSavedFilter,
-    deleteSavedFilter,
+    onApplyFilter: toggleSavedFilter,
+    onDeleteFilter: deleteSavedFilter,
     handleImportCSV,
     filteredLeads,
     saveAndActivateFilter,
@@ -312,6 +368,8 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     addCustomField,
     removeCustomField,
     setLeads,
+    updateLead,
+    setFilters,
   };
 
   return (

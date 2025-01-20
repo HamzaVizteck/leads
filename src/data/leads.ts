@@ -10,7 +10,7 @@ export const leads: Lead[] = [
     status: "New",
     source: "Website",
     industry: "Technology",
-    lastContact: "2024-03-10",
+    lastContact: new Date("2024-03-10"),
     value: 25000,
   },
   {
@@ -22,7 +22,7 @@ export const leads: Lead[] = [
     status: "In Progress",
     source: "Referral",
     industry: "Marketing",
-    lastContact: "2024-03-08",
+    lastContact: new Date("2024-03-08"),
     value: 15000,
   },
   {
@@ -34,7 +34,7 @@ export const leads: Lead[] = [
     status: "Closed",
     source: "LinkedIn",
     industry: "Retail",
-    lastContact: "2024-03-12",
+    lastContact: new Date("2024-03-12"),
     value: 50000,
   },
   {
@@ -46,7 +46,7 @@ export const leads: Lead[] = [
     status: "New",
     source: "Conference",
     industry: "Healthcare",
-    lastContact: "2024-03-15",
+    lastContact: new Date("2024-03-15"),
     value: 75000,
   },
   {
@@ -58,7 +58,7 @@ export const leads: Lead[] = [
     status: "Closed",
     source: "Email Campaign",
     industry: "Finance",
-    lastContact: "2024-03-11",
+    lastContact: new Date("2024-03-11"),
     value: 100000,
   },
   {
@@ -70,7 +70,7 @@ export const leads: Lead[] = [
     status: "In Progress",
     source: "Website",
     industry: "Education",
-    lastContact: "2024-03-14",
+    lastContact: new Date("2024-03-14"),
     value: 30000,
   },
   {
@@ -82,7 +82,7 @@ export const leads: Lead[] = [
     status: "Closed",
     source: "Trade Show",
     industry: "Manufacturing",
-    lastContact: "2024-03-13",
+    lastContact: new Date("2024-03-13"),
     value: 200000,
   },
   {
@@ -94,7 +94,7 @@ export const leads: Lead[] = [
     status: "New",
     source: "Website",
     industry: "Retail",
-    lastContact: "2024-03-16",
+    lastContact: new Date("2024-03-16"),
     value: 45000,
   },
   {
@@ -106,7 +106,7 @@ export const leads: Lead[] = [
     status: "In Progress",
     source: "LinkedIn",
     industry: "Technology",
-    lastContact: "2024-03-09",
+    lastContact: new Date("2024-03-09"),
     value: 60000,
   },
   {
@@ -118,7 +118,7 @@ export const leads: Lead[] = [
     status: "In Progress",
     source: "Referral",
     industry: "Consulting",
-    lastContact: "2024-03-17",
+    lastContact: new Date("2024-03-17"),
     value: 85000,
   },
 ];

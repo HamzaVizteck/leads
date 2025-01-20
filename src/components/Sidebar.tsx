@@ -150,13 +150,13 @@ export const Sidebar: React.FC<Props> = ({
             <h3 className="text-sm font-medium text-green-100 mb-3">METRICS</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-green-700 p-4 rounded-lg">
-                <div className="text-2xl font-semibold text-green-100">
+                <div className="text-xl font-semibold text-green-100">
                   {stats.totalLeads}
                 </div>
                 <div className="text-xs text-green-100">Total Leads</div>
               </div>
               <div className="bg-green-700 p-4 rounded-lg">
-                <div className="text-2xl font-semibold text-green-100">
+                <div className="text-xl font-semibold text-green-100">
                   ${(stats.totalValue / 1000).toFixed(1)}k
                 </div>
                 <div className="text-xs text-green-100">Pipeline Value</div>
@@ -176,14 +176,10 @@ export const Sidebar: React.FC<Props> = ({
                     <div
                       className={`w-2 h-2 rounded-full mr-2 ${
                         status === "New"
-                          ? "bg-green-400"
+                          ? "bg-blue-400"
                           : status === "In Progress"
                           ? "bg-yellow-400"
-                          : status === "Qualified"
-                          ? "bg-blue-400"
-                          : status === "Closed Won"
-                          ? "bg-purple-400"
-                          : "bg-red-400"
+                          : "bg-green-400"
                       }`}
                     />
                     <span className="text-sm text-green-100">{status}</span>

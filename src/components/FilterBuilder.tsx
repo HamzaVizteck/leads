@@ -1,37 +1,25 @@
-import React, { useState } from "react";
-import { Filter, Lead, SavedFilter } from "../types";
-import { Plus, Save, X, Download, Trash2 } from "lucide-react";
-import { Modal } from "./Modal";
-import { ActiveFiltersModal } from "./ActiveFiltersModal";
+import React, { useState, useEffect } from "react";
+import { Filter, Lead } from "../types";
+import { Plus, Trash2, FilterX as FilterIcon } from "lucide-react";
+import FilterModal from "./FilterModal";
+import FilterPill from "./FilterPill";
+import { CSVImport } from "./CSVImport";
+import { useLeads } from "./LeadsProvider";
+import { ConfirmationModal } from "./ConfirmationModal";
 
 type Props = {
   filters: Filter[];
-  onAddFilter: () => void;
+  onAddFilter: (field: {
+    key: keyof Lead;
+    label: string;
+    type: "search" | "dropdown" | "number";
+    filterName: string;
+  }) => void;
   onRemoveFilter: (id: string) => void;
   onFilterChange: (filter: Filter) => void;
-  savedFilters: SavedFilter[];
-  activeFilterIds: string[];
-  onApplyFilter: (filter: SavedFilter) => void;
-  onDeleteFilter: (id: string) => void;
   selectedLeads: string[];
-  saveAndActivateFilter: (name: string, filters: Filter[]) => void;
-  customFields: Array<{
-    key: keyof Lead;
-    label: string;
-    type: "string" | "number" | "all";
-  }>;
-  operators: Array<{
-    value: string;
-    label: string;
-    type: "string" | "number" | "all";
-  }>;
-  onDeleteSelected: () => void;
-  onAddCustomField: (field: {
-    key: keyof Lead;
-    label: string;
-    type: "string" | "number" | "all";
-  }) => void;
-  onRemoveCustomField: (key: keyof Lead) => void;
+  onImportCSV: (importedLeads: Lead[]) => void;
+  setFilters: (filters: Filter[]) => void;
 };
 
 export const FilterBuilder: React.FC<Props> = ({
@@ -39,96 +27,67 @@ export const FilterBuilder: React.FC<Props> = ({
   onAddFilter,
   onRemoveFilter,
   onFilterChange,
-  savedFilters,
-  activeFilterIds,
-  onApplyFilter,
-  onDeleteFilter,
   selectedLeads,
-  saveAndActivateFilter,
-  customFields,
-  operators,
-  onDeleteSelected,
-  onAddCustomField,
-  onRemoveCustomField,
+  onImportCSV,
+  setFilters,
 }) => {
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [filterName, setFilterName] = useState("");
-  const [showCustomFieldsModal, setShowCustomFieldsModal] = useState(false);
-  const [showActiveFiltersModal, setShowActiveFiltersModal] = useState(false);
-  const [newFieldName, setNewFieldName] = useState("");
-  const [newFieldType, setNewFieldType] = useState<"string" | "number">(
-    "string"
-  );
+  const { deleteLeads } = useLeads();
+  const [showAddFilterModal, setShowAddFilterModal] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  const handleSaveFilter = () => {
-    if (filterName.trim()) {
-      const validFilters = filters.filter((f) => f.value.trim() !== "");
-      if (validFilters.length > 0) {
-        saveAndActivateFilter(filterName, validFilters);
-        setFilterName("");
-        setShowSaveDialog(false);
-      } else {
-        alert("Please add at least one filter with a value");
-      }
-    }
+  useEffect(() => {
+    resetFilters(); // Reset filters on full page reload
+  }, []); // Empty dependency array to run only on mount
+
+  const handleDelete = () => {
+    setShowDeleteConfirmation(true);
   };
 
-  const handleAddCustomField = () => {
-    if (newFieldName.trim()) {
-      const key = newFieldName.toLowerCase().replace(/\s+/g, "_");
-      const newField = {
-        key: key as keyof Lead,
-        label: newFieldName.trim(),
-        type: newFieldType,
-      };
+  const handleConfirmDelete = () => {
+    deleteLeads(selectedLeads);
+    setShowDeleteConfirmation(false);
+  };
 
-      onAddCustomField(newField);
-      setNewFieldName("");
-    }
+  const resetFilters = () => {
+    const resetFilters = filters.map((filter) => {
+      // Reset the value based on the filter type
+      if (filter.type === "dropdown") {
+        return { ...filter, value: "" }; // Reset dropdown value to an empty string
+      } else if (filter.type === "number") {
+        return { ...filter, value: 0 }; // Reset number value to 0
+      } else {
+        return { ...filter, value: "" }; // Reset other types to empty string
+      }
+    });
+
+    setFilters(resetFilters); // Update the filters with reset values
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 container mx-auto bg-white p-4 rounded-md">
       <div className="flex justify-between items-center mb-4">
         <div className="flex space-x-3">
           <button
-            onClick={() => setShowCustomFieldsModal(true)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            Customize Fields
-          </button>
-          <button
-            onClick={onAddFilter}
+            onClick={() => setShowAddFilterModal(true)}
+            title="Add Filter"
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
             <Plus className="w-4 h-4 inline-block mr-2" />
             Add Filter
           </button>
-          {filters.length > 0 && (
-            <button
-              onClick={() => setShowSaveDialog(true)}
-              className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Filter
-            </button>
-          )}
         </div>
         <div className="flex space-x-3">
           <button
-            disabled={selectedLeads.length === 0}
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-              selectedLeads.length === 0
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-green-600 hover:bg-green-700"
-            }`}
+            onClick={resetFilters}
+            className="p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            title="Reset Filters" // Tooltip text on hover
           >
-            <Download className="w-4 h-4 mr-2" />
-            Export
+            <FilterIcon className="w-4 h-4" />
           </button>
+          <CSVImport onImport={onImportCSV} />
           <button
+            onClick={handleDelete}
             disabled={selectedLeads.length === 0}
-            onClick={onDeleteSelected}
             className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
               selectedLeads.length === 0
                 ? "bg-gray-400 cursor-not-allowed"
@@ -136,214 +95,37 @@ export const FilterBuilder: React.FC<Props> = ({
             }`}
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            Delete
+            Delete {selectedLeads.length > 0 ? `(${selectedLeads.length})` : ""}
           </button>
         </div>
       </div>
 
-      {/* Active Filters */}
-      {filters.map((filter) => (
-        <div key={filter.id} className="flex items-center space-x-4">
-          <select
-            className="block w-40 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            value={filter.field}
-            onChange={(e) =>
-              onFilterChange({ ...filter, field: e.target.value as keyof Lead })
-            }
-          >
-            {customFields.map((field) => (
-              <option key={field.key} value={field.key}>
-                {field.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="block w-40 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            value={filter.operator}
-            onChange={(e) =>
-              onFilterChange({
-                ...filter,
-                operator: e.target.value as Filter["operator"],
-              })
-            }
-          >
-            {operators
-              .filter((op) => {
-                if (filter.field === "value") {
-                  return op.type === "number" || op.type === "all";
-                }
-                return op.type === "string" || op.type === "all";
-              })
-              .map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-          </select>
-
-          <input
-            type={filter.field === "value" ? "number" : "text"}
-            className="block w-64 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            value={filter.value}
-            onChange={(e) =>
-              onFilterChange({ ...filter, value: e.target.value })
-            }
-            placeholder="Filter value..."
+      {/* Active Filters Display */}
+      <div className="flex flex-wrap gap-2">
+        {filters.map((filter) => (
+          <FilterPill
+            key={filter.id}
+            filter={filter}
+            onRemove={onRemoveFilter}
+            onUpdate={onFilterChange}
           />
+        ))}
+      </div>
 
-          <button
-            onClick={() => onRemoveFilter(filter.id)}
-            className="text-red-600 hover:text-red-800 p-2"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      ))}
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={showAddFilterModal}
+        onClose={() => setShowAddFilterModal(false)}
+        onAddFilter={onAddFilter}
+      />
 
-      {/* Saved Filters Section */}
-      {savedFilters.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">
-            Saved Filters
-          </h3>
-          <div className="flex space-x-2">
-            {savedFilters.map((filter) => (
-              <button
-                key={filter.id}
-                onClick={() => onApplyFilter(filter)}
-                className={`flex items-center justify-between bg-gray-50 px-4 py-2 rounded-full transition-colors ${
-                  activeFilterIds.includes(filter.id)
-                    ? "bg-green-300 text-green-600"
-                    : "bg-green-100 text-green-900 hover:bg-green-200"
-                }`}
-              >
-                <span className="text-sm">{filter.name}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteFilter(filter.id);
-                  }}
-                  className="text-gray-500 items-center ml-3 hover:text-red-500"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Save Filter Modal */}
-      <Modal
-        isOpen={showSaveDialog}
-        onClose={() => setShowSaveDialog(false)}
-        title="Save Filter"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter Name
-            </label>
-            <input
-              type="text"
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              value={filterName}
-              onChange={(e) => setFilterName(e.target.value)}
-              placeholder="Enter filter name..."
-            />
-          </div>
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={() => setShowSaveDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveFilter}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Custom Fields Modal */}
-      <Modal
-        isOpen={showCustomFieldsModal}
-        onClose={() => setShowCustomFieldsModal(false)}
-        title="Customize Fields"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {customFields.map((field) => (
-              <div
-                key={field.key}
-                className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md hover:bg-gray-100"
-              >
-                <span className="text-sm text-gray-700">{field.label}</span>
-                <button
-                  onClick={() => onRemoveCustomField(field.key)}
-                  className="text-red-600 hover:text-red-800 p-1 hover:bg-red-100 rounded"
-                  title="Delete field"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="pt-4 border-t border-gray-200 space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  placeholder="Enter field name..."
-                  className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                />
-                <select
-                  value={newFieldType}
-                  onChange={(e) =>
-                    setNewFieldType(e.target.value as "string" | "number")
-                  }
-                  className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                >
-                  <option value="string">Text</option>
-                  <option value="number">Number</option>
-                </select>
-                <button
-                  onClick={handleAddCustomField}
-                  disabled={!newFieldName.trim()}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end pt-4">
-            <button
-              onClick={() => setShowCustomFieldsModal(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Active Filters Modal */}
-      <ActiveFiltersModal
-        isOpen={showActiveFiltersModal}
-        onClose={() => setShowActiveFiltersModal(false)}
-        filters={filters}
-        onFilterChange={onFilterChange}
-        onRemoveFilter={onRemoveFilter}
-        customFields={customFields}
-        operators={operators}
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirmation}
+        onClose={() => setShowDeleteConfirmation(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Leads"
+        message={`Are you sure you want to delete ${selectedLeads.length} selected lead(s)? This action cannot be undone.`}
       />
     </div>
   );

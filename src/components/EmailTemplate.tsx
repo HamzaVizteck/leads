@@ -20,6 +20,9 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     null
   );
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(
+    null
+  );
   const [templates, setTemplates] = useState<Template[]>(() => {
     const saved = localStorage.getItem("email-templates");
     return saved ? JSON.parse(saved) : [];
@@ -50,15 +53,22 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     }
   };
 
-  const deleteTemplate = (templateId: string) => {
-    if (window.confirm("Are you sure you want to delete this template?")) {
-      const updatedTemplates = templates.filter((t) => t.id !== templateId);
-      setTemplates(updatedTemplates);
-      localStorage.setItem("email-templates", JSON.stringify(updatedTemplates));
-      setSuccessMessage("Template deleted successfully!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 5000);
-    }
+  const handleDeleteClick = (template: Template) => {
+    setTemplateToDelete(template);
+  };
+
+  const deleteTemplate = () => {
+    if (!templateToDelete) return;
+
+    const updatedTemplates = templates.filter(
+      (t) => t.id !== templateToDelete.id
+    );
+    setTemplates(updatedTemplates);
+    localStorage.setItem("email-templates", JSON.stringify(updatedTemplates));
+    setSuccessMessage("Template deleted successfully!");
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 5000);
+    setTemplateToDelete(null);
   };
 
   const startEditingTemplate = (template: Template) => {
@@ -125,7 +135,7 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
             className="absolute top-0 bottom-0 right-0 px-4 py-3"
             onClick={() => setShowSuccess(false)}
           >
-            <X className="h-4 w-4" />
+            <X className="p-2 h-4 w-4" />
           </button>
         </div>
       )}
@@ -164,7 +174,7 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
                   <Edit className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => deleteTemplate(template.id)}
+                  onClick={() => handleDeleteClick(template)}
                   className="p-1 text-gray-500 hover:text-red-600 transition-colors"
                   title="Delete template"
                 >
@@ -251,6 +261,34 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
             >
               {editingTemplate ? "Update Template" : "Save Template"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        title="Delete Template"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Are you sure you want to delete the template "
+            {templateToDelete?.name}"? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => setTemplateToDelete(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={deleteTemplate}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Delete Template
             </button>
           </div>
         </div>

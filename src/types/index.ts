@@ -7,21 +7,17 @@ export type Lead = {
   status: string;
   source: string;
   industry: string;
-  lastContact: string;
+  lastContact: Date;
   value: number;
 };
 
 export type Filter = {
   id: string;
+  name: string;
   field: keyof Lead;
-  operator:
-    | "equals"
-    | "contains"
-    | "greater"
-    | "less"
-    | "greaterEqual"
-    | "lessEqual";
-  value: string;
+  type: "search" | "dropdown" | "number";
+  value: string | number | string[] | NumberCondition[];
+  dropdownOptions?: string[];
 };
 
 export type SavedFilter = {
@@ -29,3 +25,17 @@ export type SavedFilter = {
   name: string;
   filters: Filter[];
 };
+
+export type FilterOperator = "=" | ">" | "<" | ">=" | "<=";
+
+export interface NumberCondition {
+  operator: FilterOperator;
+  value: number;
+}
+
+export interface FilterField {
+  key: keyof Lead;
+  label: string;
+  type: "search" | "dropdown" | "number";
+  value?: string | string[] | NumberCondition[];
+}

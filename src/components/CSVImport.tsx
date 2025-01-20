@@ -28,6 +28,7 @@ interface CSVRow {
   source: string;
   industry: string;
   value: string;
+  lastContact: string;
 }
 
 export const CSVImport: React.FC<Props> = ({ onImport }) => {
@@ -119,15 +120,6 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
             const leads: Lead[] = results.data
               .filter((row: CSVRow) => Object.values(row).some((val) => val))
               .map((row: CSVRow, index: number) => {
-                // Parse value field, handle different formats
-                let value = 0;
-                if (row.value) {
-                  // Remove currency symbols and commas
-                  const cleanValue = row.value.replace(/[$,]/g, "").trim();
-                  value = parseFloat(cleanValue);
-                  if (isNaN(value)) value = 0;
-                }
-
                 return {
                   id: Date.now() + index,
                   name: row.name || "",
@@ -137,8 +129,10 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
                   status: row.status || "",
                   source: row.source || "",
                   industry: row.industry || "",
-                  lastContact: new Date().toISOString().split("T")[0],
-                  value: value,
+                  lastContact: new Date(row.lastContact),
+                  value: row.value
+                    ? parseFloat(row.value.replace(/[$,]/g, "").trim())
+                    : 0,
                 };
               });
 
@@ -165,15 +159,6 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
             const leads: Lead[] = results.data
               .filter((row: CSVRow) => Object.values(row).some((val) => val))
               .map((row: CSVRow, index: number) => {
-                // Parse value field, handle different formats
-                let value = 0;
-                if (row.value) {
-                  // Remove currency symbols and commas
-                  const cleanValue = row.value.replace(/[$,]/g, "").trim();
-                  value = parseFloat(cleanValue);
-                  if (isNaN(value)) value = 0;
-                }
-
                 return {
                   id: Date.now() + index,
                   name: row.name || "",
@@ -183,8 +168,10 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
                   status: row.status || "",
                   source: row.source || "",
                   industry: row.industry || "",
-                  lastContact: new Date().toISOString().split("T")[0],
-                  value: value,
+                  lastContact: new Date(row.lastContact),
+                  value: row.value
+                    ? parseFloat(row.value.replace(/[$,]/g, "").trim())
+                    : 0,
                 };
               });
 
@@ -239,7 +226,7 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
             className="absolute top-0 bottom-0 right-0 px-4 py-3"
             onClick={() => setShowSuccess(false)}
           >
-            <X className="h-4 w-4" />
+            <X className="p-2 h-4 w-4" />
           </button>
         </div>
       )}
