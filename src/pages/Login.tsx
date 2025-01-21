@@ -28,7 +28,10 @@ const Login = () => {
 
   return (
     <div className="flex items-center justify-center h-screen">
-      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md">
+      <form
+        onSubmit={handleLogin}
+        className="bg-green-100 p-6 rounded shadow-lg w-80"
+      >
         <h2 className="text-xl mb-4">Login</h2>
         {error && <p className="text-red-500">{error}</p>}
         <div className="mb-4">

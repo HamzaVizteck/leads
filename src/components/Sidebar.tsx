@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Grid,
   List,
-  Calendar,
   PieChart,
   Filter,
   ChevronDown,
@@ -45,7 +44,6 @@ export const Sidebar: React.FC<Props> = ({
   const views = [
     { id: "all", label: "All Leads", icon: List },
     { id: "grid", label: "Grid View", icon: Grid },
-    { id: "calendar", label: "Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics", icon: PieChart },
     { id: "email", label: "Email Templates", icon: Mail },
   ];
