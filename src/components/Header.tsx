@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { LogOut, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebaseConfig";
@@ -6,6 +6,7 @@ import { signOut } from "firebase/auth";
 
 export const Header: React.FC = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null); // Ref for the dropdown
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -13,10 +14,27 @@ export const Header: React.FC = () => {
     navigate("/"); // Navigate to login screen
   };
 
+  // Effect to handle clicks outside the dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   return (
     <header className="h-16 bg-green-900 border-b shadow-lg border-gray-200 fixed top-0 right-0 left-64 z-50">
       <div className="h-full px-6 flex items-center justify-end">
-        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => {
@@ -27,10 +45,10 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Profile Menu */}
-        <div className="relative ml-4">
+        <div className="relative ml-4" ref={dropdownRef}>
           <button
             onClick={() => {
-              setShowProfileMenu(!showProfileMenu);
+              setShowProfileMenu((prev) => !prev);
             }}
             className="flex items-center space-x-2 text-green-100 hover:bg-green-100 hover:text-green-900 rounded-lg p-2 z-50"
           >
