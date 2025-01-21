@@ -49,6 +49,14 @@ export const LeadTable: React.FC<Props> = ({
     leadId: string
   ) => {
     e.stopPropagation();
+    const selectedLead = leads.find((lead) => lead.id.toString() === leadId);
+    if (selectedLead) {
+      console.log(
+        "Selected Lead Date:",
+        new Date(selectedLead.lastContact).toString()
+      );
+    }
+
     if (selectedLeads.includes(leadId)) {
       onSelectLeads(selectedLeads.filter((id) => id !== leadId));
     } else {
@@ -279,7 +287,7 @@ export const LeadTable: React.FC<Props> = ({
                     ${lead.value.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(lead.lastContact).toLocaleDateString()}
+                    {new Date(lead.lastContact).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex items-center space-x-3">

@@ -12,6 +12,9 @@ import {
   LogOut,
 } from "lucide-react";
 import { Lead, SavedFilter } from "../types";
+import { signOut } from "firebase/auth";
+import { auth } from "../config/firebaseConfig";
+import { useNavigate } from "react-router-dom";
 
 type Props = {
   leads: Lead[];
@@ -32,12 +35,12 @@ export const Sidebar: React.FC<Props> = ({
 }) => {
   const [showFilters, setShowFilters] = useState(false);
 
-  const stats = {
-    totalLeads: leads.length,
-    totalValue: leads.reduce((sum, lead) => sum + lead.value, 0),
-    industries: [...new Set(leads.map((lead) => lead.industry))].length,
-    sources: [...new Set(leads.map((lead) => lead.source))].length,
-  };
+  // const stats = {
+  //   totalLeads: leads.length,
+  //   totalValue: leads.reduce((sum, lead) => sum + lead.value, 0),
+  //   industries: [...new Set(leads.map((lead) => lead.industry))].length,
+  //   sources: [...new Set(leads.map((lead) => lead.source))].length,
+  // };
 
   const views = [
     { id: "all", label: "All Leads", icon: List },
@@ -46,13 +49,16 @@ export const Sidebar: React.FC<Props> = ({
     { id: "analytics", label: "Analytics", icon: PieChart },
     { id: "email", label: "Email Templates", icon: Mail },
   ];
-
+  const navigate = useNavigate();
   const statuses = Array.from(new Set(leads.map((lead) => lead.status)));
   const statusCounts = statuses.reduce((acc, status) => {
     acc[status] = leads.filter((lead) => lead.status === status).length;
     return acc;
   }, {} as Record<string, number>);
-
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/"); // Navigate to login screen
+  };
   return (
     <div
       className="w-64 bg-green-900 shadow-lg text-green-100 h-screen fixed left-0 top-0 flex flex-col overflow-y-auto
@@ -147,24 +153,6 @@ export const Sidebar: React.FC<Props> = ({
           </div>
 
           <div className="mb-8">
-            <h3 className="text-sm font-medium text-green-100 mb-3">METRICS</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-green-700 p-4 rounded-lg">
-                <div className="text-xl font-semibold text-green-100">
-                  {stats.totalLeads}
-                </div>
-                <div className="text-xs text-green-100">Total Leads</div>
-              </div>
-              <div className="bg-green-700 p-4 rounded-lg">
-                <div className="text-xl font-semibold text-green-100">
-                  ${(stats.totalValue / 1000).toFixed(1)}k
-                </div>
-                <div className="text-xs text-green-100">Pipeline Value</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-8">
             <h3 className="text-sm font-medium text-green-100 mb-3">STATUS</h3>
             <div className="space-y-2">
               {Object.entries(statusCounts).map(([status, count]) => (
@@ -196,7 +184,10 @@ export const Sidebar: React.FC<Props> = ({
 
       <div className="p-4 border-t border-green-700">
         <div className="flex items-center space-x-4">
-          <button className="text-green-100 flex items-center hover:text-green-900 hover:bg-green-700 rounded-lg p-2">
+          <button
+            onClick={handleLogout}
+            className="text-green-100 flex items-center hover:text-white hover:bg-red-700 rounded-lg p-2"
+          >
             <LogOut className="w-5 h-5 mr-2 text-green-100" />
             Logout
           </button>

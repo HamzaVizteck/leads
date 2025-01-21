@@ -84,10 +84,16 @@ export const LeadsManagement: React.FC = () => {
               <h1 className="text-2xl font-bold text-gray-900">
                 {currentView === "email"
                   ? "Email Templates"
+                  : currentView === "grid"
+                  ? "Grid View"
+                  : currentView === "calendar"
+                  ? "Calendar"
+                  : currentView === "analytics"
+                  ? "Analytics"
                   : "Leads Management"}
               </h1>
             </div>
-            {currentView === "all" && (
+            {(currentView === "all" || currentView === "grid") && (
               <div className="flex items-center gap-4">
                 <div className="text-sm text-gray-500">
                   {filteredLeads.length} leads found

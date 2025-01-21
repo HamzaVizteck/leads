@@ -181,6 +181,11 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     };
     setFilters((prev) => [...prev, newFilter]);
 
+    // Ensure that the value for number type is always an array
+    if (field.type === "number" && !Array.isArray(newFilter.value)) {
+      newFilter.value = [];
+    }
+
     // Save as a new saved filter
     const newSavedFilter: SavedFilter = {
       id: crypto.randomUUID(),
@@ -289,25 +294,33 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
 
         if (filter.type === "number") {
           const conditions = filter.value as NumberCondition[];
-          if (conditions.length === 0) return true;
+          console.log("Conditions:", conditions); // Debugging output
+          console.log("Is Array:", Array.isArray(conditions)); // Check if it's an array
 
-          return conditions.every((condition) => {
-            const numValue = Number(value);
-            switch (condition.operator) {
-              case "=":
-                return numValue === condition.value;
-              case ">":
-                return numValue > condition.value;
-              case "<":
-                return numValue < condition.value;
-              case ">=":
-                return numValue >= condition.value;
-              case "<=":
-                return numValue <= condition.value;
-              default:
-                return true;
-            }
-          });
+          if (!Array.isArray(conditions)) {
+            console.error("Expected conditions to be an array:", conditions);
+            return true; // Skip filtering if conditions is not an array
+          }
+
+          return conditions
+            .filter((condition) => condition.isActive) // Only consider active conditions
+            .every((condition) => {
+              const numValue = Number(value);
+              switch (condition.operator) {
+                case "=":
+                  return numValue === condition.value;
+                case ">":
+                  return numValue > condition.value;
+                case "<":
+                  return numValue < condition.value;
+                case ">=":
+                  return numValue >= condition.value;
+                case "<=":
+                  return numValue <= condition.value;
+                default:
+                  return true;
+              }
+            });
         }
 
         return true;

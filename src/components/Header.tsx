@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { Bell, Settings, LogOut, User, ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { auth } from "../config/firebaseConfig";
+import { signOut } from "firebase/auth";
 
 type Notification = {
   id: string;
@@ -11,6 +14,7 @@ type Notification = {
 export const Header: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const navigate = useNavigate();
 
   // Mock notifications - in a real app, these would come from a backend
   const notifications: Notification[] = [
@@ -35,6 +39,11 @@ export const Header: React.FC = () => {
   ];
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/"); // Navigate to login screen
+  };
 
   return (
     <header className="h-16 bg-green-900 border-b shadow-lg border-gray-200 fixed top-0 right-0 left-64 z-50">
@@ -112,7 +121,10 @@ export const Header: React.FC = () => {
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </button>
-                <button className="w-full px-4 py-2 text-sm text-green-900 hover:bg-green-900 hover:text-green-100 flex items-center">
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 text-sm text-green-900 hover:bg-green-900 hover:text-green-100 flex items-center"
+                >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </button>

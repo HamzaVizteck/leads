@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { Filter, Lead, NumberCondition } from "../types";
+import { ChevronDown, ChevronUp, X, Plus } from "lucide-react";
+import { Filter, FilterOperator, Lead, NumberCondition } from "../types";
 import { leads } from "../data/leads";
 
 interface FilterPillProps {
@@ -18,6 +18,14 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
       return filter.value as NumberCondition[];
     }
     return [];
+  });
+  const [numberConditions, setNumberConditions] = useState<NumberCondition[]>(
+    []
+  );
+  const [newCondition, setNewCondition] = useState<NumberCondition>({
+    operator: "=",
+    value: 0,
+    isActive: true,
   });
 
   useEffect(() => {
@@ -63,6 +71,35 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
         ...filter,
         value: updatedConditions,
       });
+    } else if (filter.type === "date") {
+      // Handle date selection logic here
+      const currentConditions = filter.value as NumberCondition[];
+      const isSelected = currentConditions.some(
+        (c) =>
+          c.operator === selectedCondition.operator &&
+          c.value === new Date(selectedCondition.value).getTime() // Ensure comparison is done with timestamps
+      );
+
+      const updatedConditions = isSelected
+        ? currentConditions.filter(
+            (c) =>
+              !(
+                c.operator === selectedCondition.operator &&
+                c.value === new Date(selectedCondition.value).getTime()
+              )
+          )
+        : [
+            ...currentConditions,
+            {
+              ...selectedCondition,
+              value: new Date(selectedCondition.value).getTime(),
+            },
+          ];
+
+      onUpdate({
+        ...filter,
+        value: updatedConditions,
+      });
     }
   };
 
@@ -73,16 +110,46 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
     );
   };
 
-  const getActiveConditions = () => {
-    if (!Array.isArray(filter.value)) return [];
-    return filter.value as NumberCondition[];
+  const isDateField = (field: keyof Lead) => {
+    const value = leads[0][field];
+    return value instanceof Date;
   };
 
-  const isDateField = (field: keyof Lead) => {
-    return (
-      typeof leads[0][field] === "string" && !isNaN(Date.parse(leads[0][field]))
-    );
+  const handleAddCondition = () => {
+    const newConditionWithActive: NumberCondition = {
+      ...newCondition,
+      isActive: true,
+    };
+    setNumberConditions([...numberConditions, newConditionWithActive]);
+    setNewCondition({ operator: "=", value: 0, isActive: true });
+
+    // Update the filter in LeadsProvider
+    onUpdate({
+      ...filter,
+      value: [...numberConditions, newConditionWithActive],
+    });
   };
+
+  const toggleConditionActive = (index: number) => {
+    const updatedConditions = numberConditions.map((condition, i) =>
+      i === index ? { ...condition, isActive: !condition.isActive } : condition
+    );
+    setNumberConditions(updatedConditions);
+
+    // Update the filter in LeadsProvider
+    onUpdate({
+      ...filter,
+      value: updatedConditions,
+    });
+  };
+
+  const handleRemoveCondition = (index: number) => {
+    setNumberConditions(numberConditions.filter((_, i) => i !== index));
+  };
+
+  console.log("Filter Type:", filter.type);
+  console.log("Field Value:", leads[0][filter.field]);
+  console.log("Is Date Field:", isDateField(filter.field));
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -128,23 +195,112 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
         )}
 
         {filter.type === "number" && (
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-1"
-          >
-            {Array.isArray(filter.value) && filter.value.length > 0 ? (
-              <span className="text-sm text-gray-700">
-                {getActiveConditions()
-                  .map(
-                    (condition) => `${condition.operator} ${condition.value}`
-                  )
-                  .join(", ")}
-              </span>
-            ) : (
-              "Select conditions"
+          <div>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="flex items-center gap-1"
+            >
+              {numberConditions.length > 0 ? (
+                <span className="text-sm text-gray-700">
+                  {numberConditions
+                    .filter((condition) => condition.isActive)
+                    .map(
+                      (condition) => `${condition.operator} ${condition.value}`
+                    )
+                    .join(", ")}
+                </span>
+              ) : (
+                "Select conditions"
+              )}
+              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+
+            {isOpen && (
+              <div className="absolute top-full mt-2 w-72 bg-white border rounded-lg shadow-lg z-10">
+                <div className="p-4">
+                  {numberConditions.map((condition, index) => (
+                    <div key={index} className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        checked={condition.isActive}
+                        onChange={() => toggleConditionActive(index)}
+                        className="mr-2"
+                      />
+                      <span className="text-sm font-medium">
+                        {condition.operator}
+                      </span>
+                      <span className="text-sm">{condition.value}</span>
+                      <button
+                        onClick={() => handleRemoveCondition(index)}
+                        className="ml-auto text-red-500 hover:text-red-700"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={newCondition.operator}
+                      onChange={(e) =>
+                        setNewCondition({
+                          ...newCondition,
+                          operator: e.target.value as FilterOperator,
+                        })
+                      }
+                      className="px-2 py-1 border rounded"
+                    >
+                      <option value="=">=</option>
+                      <option value=">">&gt;</option>
+                      <option value="<">&lt;</option>
+                      <option value=">=">&gt;=</option>
+                      <option value="<=">&lt;=</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={newCondition.value}
+                      onChange={(e) =>
+                        setNewCondition({
+                          ...newCondition,
+                          value: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="px-2 py-1 border rounded w-24"
+                    />
+                    <button
+                      onClick={handleAddCondition}
+                      className="ml-auto rounded-lg p-1 bg-green-500 text-white hover:bg-green-700 flex items-center"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
-            {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
+          </div>
+        )}
+
+        {filter.type === "date" && isOpen && (
+          <div className="absolute top-full mt-2 w-72 bg-white border rounded-lg shadow-lg z-10">
+            <div className="p-4">
+              {allConditions.map((condition, index) => (
+                <div key={index} className="flex items-center gap-2 mb-2">
+                  <label className="flex items-center p-2 hover:bg-gray-50 w-full">
+                    <input
+                      type="checkbox"
+                      checked={isConditionSelected(condition)}
+                      onChange={() => handleSelectCondition(condition)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">
+                      {condition.operator}{" "}
+                      {new Date(condition.value).toLocaleDateString()}
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -173,28 +329,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
                 />
                 {value}
               </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {filter.type === "number" && isOpen && (
-        <div className="absolute top-full mt-2 w-72 bg-white border rounded-lg shadow-lg z-10">
-          <div className="p-4">
-            {allConditions.map((condition, index) => (
-              <div key={index} className="flex items-center gap-2 mb-2">
-                <label className="flex items-center p-2 hover:bg-gray-50 w-full">
-                  <input
-                    type="checkbox"
-                    checked={isConditionSelected(condition)}
-                    onChange={() => handleSelectCondition(condition)}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">
-                    {condition.operator} {condition.value}
-                  </span>
-                </label>
-              </div>
             ))}
           </div>
         </div>

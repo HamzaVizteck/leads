@@ -13,6 +13,18 @@ const isNumberField = (field: keyof Lead) => {
   return typeof leads[0][field] === "number";
 };
 
+const getDataType = (field: keyof Lead) => {
+  const value = leads[0][field];
+  if (typeof value === "string") {
+    return "string";
+  } else if (typeof value === "number") {
+    return "number";
+  } else if (typeof value === "object" && value instanceof Date) {
+    return "date";
+  }
+  return "unknown";
+};
+
 export default function FilterModal({
   isOpen,
   onClose,
@@ -20,7 +32,7 @@ export default function FilterModal({
 }: FilterModalProps) {
   const [selectedField, setSelectedField] = useState<keyof Lead | "">("");
   const [selectedType, setSelectedType] = useState<
-    "search" | "dropdown" | "number"
+    "search" | "dropdown" | "number" | "date"
   >("search");
   const [numberConditions, setNumberConditions] = useState<NumberCondition[]>(
     []
@@ -28,6 +40,7 @@ export default function FilterModal({
   const [newCondition, setNewCondition] = useState<NumberCondition>({
     operator: "=",
     value: 0,
+    isActive: true,
   });
 
   const fields: Array<{ key: keyof Lead; label: string }> = [
@@ -40,29 +53,42 @@ export default function FilterModal({
     { key: "lastContact", label: "Last Contact" },
   ];
 
+  // Function to reset the modal state
+  const resetModal = () => {
+    setSelectedField("");
+    setSelectedType("search");
+    setNumberConditions([]);
+    setNewCondition({ operator: "=", value: 0, isActive: true });
+  };
+
   const handleSubmit = () => {
     if (selectedField) {
       onAddFilter({
-        key: selectedField,
+        key: selectedField as keyof Lead,
         label: fields.find((f) => f.key === selectedField)?.label || "",
-        type: selectedType,
+        type: selectedType as "search" | "dropdown" | "number" | "date",
         filterName: `${
           selectedField.charAt(0).toUpperCase() + selectedField.slice(1)
         } Filter`,
         value: selectedType === "number" ? numberConditions : undefined,
       });
       onClose();
-      // Reset form
-      setSelectedField("");
-      setSelectedType("search");
-      setNumberConditions([]);
-      setNewCondition({ operator: "=", value: 0 });
+      resetModal(); // Reset modal state after adding filter
     }
+    console.log("Selected Field:", selectedField);
+    console.log("Selected Type:", selectedType);
+    console.log("Number Conditions:", numberConditions);
+  };
+
+  // Call resetModal when the modal is closed
+  const handleClose = () => {
+    resetModal();
+    onClose();
   };
 
   const handleAddCondition = () => {
     setNumberConditions([...numberConditions, newCondition]);
-    setNewCondition({ operator: "=", value: 0 });
+    setNewCondition({ operator: "=", value: 0, isActive: true });
   };
 
   const handleRemoveCondition = (index: number) => {
@@ -74,6 +100,11 @@ export default function FilterModal({
       return [
         { value: "search", label: "Search Bar" },
         { value: "number", label: "Number Conditions" },
+      ];
+    } else if (getDataType(field) === "date") {
+      return [
+        { value: "search", label: "Search Date" },
+        { value: "date", label: "Date Conditions" },
       ];
     }
     return [
@@ -90,7 +121,7 @@ export default function FilterModal({
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Add Custom Filter</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700"
           >
             <X size={20} />
@@ -132,7 +163,7 @@ export default function FilterModal({
                 value={selectedType}
                 onChange={(e) => {
                   setSelectedType(
-                    e.target.value as "search" | "dropdown" | "number"
+                    e.target.value as "search" | "dropdown" | "number" | "date"
                   );
                   setNumberConditions([]);
                 }}
@@ -147,13 +178,12 @@ export default function FilterModal({
             </div>
           )}
 
-          {/* Number Conditions */}
-          {selectedType === "number" && (
+          {/* Date Conditions */}
+          {selectedType === "date" && (
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
-                Number Conditions
+                Date Conditions
               </label>
-
               {/* Existing conditions */}
               {numberConditions.map((condition, index) => (
                 <div
@@ -173,7 +203,7 @@ export default function FilterModal({
                 </div>
               ))}
 
-              {/* Add new condition */}
+              {/* Add new date condition */}
               <div className="flex items-center gap-2">
                 <select
                   value={newCondition.operator}
@@ -192,12 +222,12 @@ export default function FilterModal({
                   <option value="<=">&lt;=</option>
                 </select>
                 <input
-                  type="number"
+                  type="date"
                   value={newCondition.value}
                   onChange={(e) =>
                     setNewCondition({
                       ...newCondition,
-                      value: parseFloat(e.target.value) || 0,
+                      value: new Date(e.target.value).getTime(), // Store as timestamp
                     })
                   }
                   className="px-2 py-1 border rounded w-24"
@@ -230,21 +260,23 @@ export default function FilterModal({
                   Type:{" "}
                   <span className="font-medium capitalize">{selectedType}</span>
                 </p>
-                {selectedType === "dropdown" && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {
-                      Array.from(
-                        new Set(leads.map((lead) => lead[selectedField]))
-                      ).length
-                    }{" "}
-                    options available
-                  </p>
-                )}
-                {selectedType === "number" && numberConditions.length > 0 && (
+                <p>
+                  Data Type:{" "}
+                  <span className="font-medium capitalize">
+                    {getDataType(selectedField)}
+                  </span>
+                </p>
+                {selectedType === "dropdown"}
+                {selectedType === "date" && numberConditions.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
                     Conditions:{" "}
                     {numberConditions
-                      .map((c) => `${c.operator} ${c.value}`)
+                      .map(
+                        (c) =>
+                          `${c.operator} ${new Date(
+                            c.value
+                          ).toLocaleDateString()}`
+                      )
                       .join(", ")}
                   </p>
                 )}
@@ -255,17 +287,10 @@ export default function FilterModal({
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            disabled={
-              !selectedField ||
-              (selectedType === "number" && numberConditions.length === 0)
-            }
-            className={`w-full py-2 px-4 rounded-lg text-white font-medium
-              ${
-                selectedField &&
-                (selectedType !== "number" || numberConditions.length > 0)
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-gray-300 cursor-not-allowed"
-              }`}
+            disabled={!selectedField}
+            className={`w-full py-2 px-4 rounded-lg text-white font-medium bg-green-500 hover:bg-green-700 ${
+              !selectedField ? "cursor-not-allowed" : ""
+            }`}
           >
             Add Filter
           </button>

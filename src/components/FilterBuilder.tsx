@@ -12,7 +12,7 @@ type Props = {
   onAddFilter: (field: {
     key: keyof Lead;
     label: string;
-    type: "search" | "dropdown" | "number";
+    type: "search" | "dropdown" | "number" | "date";
     filterName: string;
   }) => void;
   onRemoveFilter: (id: string) => void;
