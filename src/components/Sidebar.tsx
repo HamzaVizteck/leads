@@ -70,7 +70,7 @@ export const Sidebar: React.FC<Props> = ({
         <h2 className="text-xl font-semibold mb-2 text-green-100">
           CRM System
         </h2>
-        <p className="text-sm text-green-100">Welcome back, Admin</p>
+        <p className="text-sm text-green-100">Welcome back, Admin!</p>
       </div>
 
       <div className="flex-1">

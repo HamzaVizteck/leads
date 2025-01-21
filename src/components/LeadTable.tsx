@@ -164,7 +164,7 @@ export const LeadTable: React.FC<Props> = ({
   };
 
   return (
-    <div className="overflow-x-auto bg-white rounded-lg shadow">
+    <div className="overflow-x-auto bg-white rounded-lg shadow-md">
       {leads.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 text-gray-500">
           <TableIcon className="w-12 h-12 mb-2" />

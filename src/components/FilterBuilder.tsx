@@ -64,7 +64,7 @@ export const FilterBuilder: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4 container mx-auto bg-white p-4 rounded-md">
+    <div className="space-y-4 container mx-auto bg-white p-4 rounded-md shadow-md">
       <div className="flex justify-between items-center mb-4">
         <div className="flex space-x-3">
           <button
