@@ -216,10 +216,10 @@ export default function FilterModal({
                   className="px-2 py-1 border rounded"
                 >
                   <option value="=">=</option>
-                  <option value=">">&gt;</option>
-                  <option value="<">&lt;</option>
-                  <option value=">=">&gt;=</option>
-                  <option value="<=">&lt;=</option>
+                  <option value=">">Greater than </option>
+                  <option value="<">Less than </option>
+                  <option value=">=">Greater than =</option>
+                  <option value="<=">Less than =</option>
                 </select>
                 <input
                   type="date"

@@ -45,3 +45,9 @@ export interface FilterField {
   type: "search" | "dropdown" | "number" | "date";
   value?: string | string[] | NumberCondition[];
 }
+export interface Template {
+  id: string;
+  name: string;
+  subject: string;
+  content: string;
+}

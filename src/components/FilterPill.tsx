@@ -216,7 +216,7 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
             </button>
 
             {isOpen && (
-              <div className="absolute top-full mt-2 w-72 bg-white border rounded-lg shadow-lg z-10">
+              <div className="absolute top-full mt-2 w-auto bg-white border rounded-lg shadow-lg z-10">
                 <div className="p-4">
                   {numberConditions.map((condition, index) => (
                     <div key={index} className="flex items-center gap-2 mb-2">
@@ -251,10 +251,10 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
                       className="px-2 py-1 border rounded"
                     >
                       <option value="=">=</option>
-                      <option value=">">&gt;</option>
-                      <option value="<">&lt;</option>
-                      <option value=">=">&gt;=</option>
-                      <option value="<=">&lt;=</option>
+                      <option value=">">Greater than</option>
+                      <option value="<">Less than</option>
+                      <option value=">=">Greater than =</option>
+                      <option value="<=">Less than =</option>
                     </select>
                     <input
                       type="number"
