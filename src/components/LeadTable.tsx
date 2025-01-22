@@ -315,6 +315,7 @@ export const LeadTable: React.FC<Props> = ({
           </table>
 
           {/* Pagination Controls */}
+
           <div className="flex justify-between items-center m-4">
             <span className="text-sm text-gray-700">
               Showing {indexOfFirstLead + 1} to{" "}
@@ -333,19 +334,35 @@ export const LeadTable: React.FC<Props> = ({
               >
                 &lt;
               </button>
-              {Array.from({ length: totalPages }, (_, index) => (
-                <button
-                  key={index + 1}
-                  onClick={() => setCurrentPage(index + 1)}
-                  className={`px-3 py-1 rounded-md ${
-                    currentPage === index + 1
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-200 hover:bg-gray-300"
-                  }`}
-                >
-                  {index + 1}
-                </button>
-              ))}
+              {Array.from({ length: totalPages }, (_, index) => index + 1)
+                .filter((page) => {
+                  // Show first few pages, last page, and a few pages around the current one
+                  const showFirstPages = page <= 9;
+                  const showLastPage = page === totalPages;
+                  const showAroundCurrent = Math.abs(currentPage - page) <= 2;
+
+                  return showFirstPages || showLastPage || showAroundCurrent;
+                })
+                .map((page, idx, arr) => {
+                  const isEllipsis = idx > 0 && arr[idx] > arr[idx - 1] + 1; // Check for skipped pages
+                  return isEllipsis ? (
+                    <span key={`ellipsis-${idx}`} className="px-2">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded-md ${
+                        currentPage === page
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-200 hover:bg-gray-300"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
