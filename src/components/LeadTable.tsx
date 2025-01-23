@@ -167,9 +167,8 @@ export const LeadTable: React.FC<Props> = ({
           <div className="p-4 border-b flex justify-start items-center sticky top-0 bg-white">
             <button
               onClick={handleSendEmail}
-              className={`flex items-center px-4 py-2 mr-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
-                
-                  bg-blue-600 hover:bg-blue-700"
+              className={`flex items-center px-4 py-2 mr-2 text-sm font-medium bg-blue-600
+                 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 hover:bg-blue-800 focus:ring-blue-500"
               }`}
             >
               <Mail className="w-4 h-4 mr-2" />

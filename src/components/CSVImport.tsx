@@ -187,7 +187,7 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
 
       {showSuccess && (
         <div
-          className="fixed top-4 right-4 z-50 flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg"
+          className="fixed top-16 right-0 z-50 flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg"
           role="alert"
         >
           <span className="block sm:inline z-50">{successMessage}</span>
