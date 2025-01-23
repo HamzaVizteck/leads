@@ -1,35 +1,20 @@
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { X, Plus } from "lucide-react";
 import { FilterField, Lead, FilterOperator, NumberCondition } from "../types";
-import { leads } from "../data/leads";
 
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddFilter: (field: FilterField & { filterName: string }) => void;
+  leads: Lead[];
 }
 
-const isNumberField = (field: keyof Lead) => {
-  return typeof leads[0][field] === "number";
-};
-
-const getDataType = (field: keyof Lead) => {
-  const value = leads[0][field];
-  if (typeof value === "string") {
-    return "string";
-  } else if (typeof value === "number") {
-    return "number";
-  } else if (typeof value === "object" && value instanceof Date) {
-    return "date";
-  }
-  return "unknown";
-};
-
-export default function FilterModal({
+export const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   onAddFilter,
-}: FilterModalProps) {
+  leads,
+}) => {
   const [selectedField, setSelectedField] = useState<keyof Lead | "">("");
   const [selectedType, setSelectedType] = useState<
     "search" | "dropdown" | "number" | "date"
@@ -43,17 +28,20 @@ export default function FilterModal({
     isActive: true,
   });
 
-  const fields: Array<{ key: keyof Lead; label: string }> = [
-    { key: "name", label: "Name" },
-    { key: "email", label: "Email" },
-    { key: "company", label: "Company" },
-    { key: "status", label: "Status" },
-    { key: "industry", label: "Industry" },
-    { key: "value", label: "Value" },
-    { key: "lastContact", label: "Last Contact" },
-  ];
+  // Dynamically detect fields and their types
+  const fields = useMemo(() => {
+    if (leads.length === 0) return [];
+    const sampleLead = leads[0];
+    return Object.entries(sampleLead)
+      .filter(([key]) => key !== "id") // Exclude id field
+      .map(([key, value]) => ({
+        key: key as keyof Lead,
+        label:
+          key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1"),
+        type: value instanceof Date ? "date" : typeof value,
+      }));
+  }, [leads]);
 
-  // Function to reset the modal state
   const resetModal = () => {
     setSelectedField("");
     setSelectedType("search");
@@ -73,14 +61,10 @@ export default function FilterModal({
         value: selectedType === "number" ? numberConditions : undefined,
       });
       onClose();
-      resetModal(); // Reset modal state after adding filter
+      resetModal();
     }
-    console.log("Selected Field:", selectedField);
-    console.log("Selected Type:", selectedType);
-    console.log("Number Conditions:", numberConditions);
   };
 
-  // Call resetModal when the modal is closed
   const handleClose = () => {
     resetModal();
     onClose();
@@ -96,12 +80,15 @@ export default function FilterModal({
   };
 
   const getAvailableFilterTypes = (field: keyof Lead) => {
-    if (isNumberField(field)) {
+    const fieldType = fields.find((f) => f.key === field)?.type;
+
+    if (fieldType === "number") {
       return [
         { value: "search", label: "Search Bar" },
         { value: "number", label: "Number Conditions" },
       ];
-    } else if (getDataType(field) === "date") {
+    }
+    if (fieldType === "date") {
       return [
         { value: "search", label: "Search Date" },
         { value: "date", label: "Date Conditions" },
@@ -263,10 +250,9 @@ export default function FilterModal({
                 <p>
                   Data Type:{" "}
                   <span className="font-medium capitalize">
-                    {getDataType(selectedField)}
+                    {fields.find((f) => f.key === selectedField)?.type}
                   </span>
                 </p>
-                {selectedType === "dropdown"}
                 {selectedType === "date" && numberConditions.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
                     Conditions:{" "}
@@ -298,4 +284,4 @@ export default function FilterModal({
       </div>
     </div>
   );
-}
+};

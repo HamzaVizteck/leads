@@ -1,19 +1,21 @@
 import React, { useState } from "react";
 import {
-  Grid,
   List,
-  PieChart,
+  // PieChart,
   Filter,
   ChevronDown,
   ChevronUp,
   Trash2,
   Mail,
   LogOut,
+  // Grid,
+  // PieChart,
 } from "lucide-react";
 import { Lead, SavedFilter } from "../types";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebaseConfig";
 import { useNavigate } from "react-router-dom";
+import { ConfirmationModal } from "./ConfirmationModal"; // Import your modal component
 
 type Props = {
   leads: Lead[];
@@ -25,7 +27,6 @@ type Props = {
 };
 
 export const Sidebar: React.FC<Props> = ({
-  leads,
   onViewChange,
   currentView,
   savedFilters,
@@ -33,33 +34,45 @@ export const Sidebar: React.FC<Props> = ({
   onDeleteFilter,
 }) => {
   const [showFilters, setShowFilters] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedFilterId, setSelectedFilterId] = useState<string | null>(null);
 
-  // const stats = {
-  //   totalLeads: leads.length,
-  //   totalValue: leads.reduce((sum, lead) => sum + lead.value, 0),
-  //   industries: [...new Set(leads.map((lead) => lead.industry))].length,
-  //   sources: [...new Set(leads.map((lead) => lead.source))].length,
-  // };
+  const navigate = useNavigate();
 
   const views = [
     { id: "all", label: "All Leads", icon: List },
-    { id: "grid", label: "Grid View", icon: Grid },
-    { id: "analytics", label: "Analytics", icon: PieChart },
+    // { id: "grid", label: "Grid View", icon: Grid },
+    // { id: "analytics", label: "Analytics", icon: PieChart },
     { id: "email", label: "Email Templates", icon: Mail },
   ];
-  const navigate = useNavigate();
-  const statuses = Array.from(new Set(leads.map((lead) => lead.status)));
-  const statusCounts = statuses.reduce((acc, status) => {
-    acc[status] = leads.filter((lead) => lead.status === status).length;
-    return acc;
-  }, {} as Record<string, number>);
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/"); // Navigate to login screen
   };
+
+  const handleDeleteClick = (id: string) => {
+    console.log("Delete button clicked for filter ID:", id);
+    setSelectedFilterId(id); // Set the filter ID to delete
+    setIsModalOpen(true); // Open the modal
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedFilterId) {
+      onDeleteFilter(selectedFilterId); // Call the delete function
+    }
+    setIsModalOpen(false); // Close the modal
+    setSelectedFilterId(null); // Reset the selected filter ID
+  };
+
+  const handleCancelDelete = () => {
+    setIsModalOpen(false); // Close the modal
+    setSelectedFilterId(null); // Reset the selected filter ID
+  };
+
   return (
     <div
-      className="w-64 bg-green-900 shadow-lg text-green-100 h-screen fixed left-0 top-0 flex flex-col overflow-y-auto
+      className="w-64 bg-green-900 shadow-lg text-green-100 h-screen z-50 fixed left-0 top-0 flex flex-col overflow-y-auto 
   [&::-webkit-scrollbar]:w-2 
   [&::-webkit-scrollbar-track]:rounded-full
   [&::-webkit-scrollbar-track]:bg-green-200
@@ -138,7 +151,7 @@ export const Sidebar: React.FC<Props> = ({
                         {filter.name}
                       </button>
                       <button
-                        onClick={() => onDeleteFilter(filter.id)}
+                        onClick={() => handleDeleteClick(filter.id)}
                         className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -148,34 +161,6 @@ export const Sidebar: React.FC<Props> = ({
                 )}
               </div>
             )}
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-sm font-medium text-green-100 mb-3">STATUS</h3>
-            <div className="space-y-2">
-              {Object.entries(statusCounts).map(([status, count]) => (
-                <div
-                  key={status}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-green-700"
-                >
-                  <div className="flex items-center">
-                    <div
-                      className={`w-2 h-2 rounded-full mr-2 ${
-                        status === "New"
-                          ? "bg-blue-400"
-                          : status === "In Progress"
-                          ? "bg-yellow-400"
-                          : "bg-green-400"
-                      }`}
-                    />
-                    <span className="text-sm text-green-100">{status}</span>
-                  </div>
-                  <span className="text-sm font-medium text-green-100">
-                    {count}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -191,6 +176,17 @@ export const Sidebar: React.FC<Props> = ({
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {isModalOpen && (
+        <ConfirmationModal
+          title="Confirm Delete"
+          message="Are you sure you want to delete this filter? This action cannot be undone."
+          onConfirm={handleConfirmDelete}
+          onClose={handleCancelDelete}
+          isOpen={isModalOpen}
+        />
+      )}
     </div>
   );
 };

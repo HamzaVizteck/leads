@@ -5,9 +5,6 @@ import { FilterBuilder } from "./FilterBuilder";
 import { Sidebar } from "./Sidebar";
 import { Users, Search } from "lucide-react";
 import { EmailTemplate } from "./EmailTemplate";
-import { GridView } from "./GridView";
-import { CalendarView } from "./CalendarView";
-import { AnalyticsView } from "./AnalyticsView";
 
 export const LeadsManagement: React.FC = () => {
   const {
@@ -28,42 +25,6 @@ export const LeadsManagement: React.FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState("all");
 
-  const renderView = () => {
-    switch (currentView) {
-      case "email":
-        return <EmailTemplate leads={filteredLeads} />;
-      case "grid":
-        return <GridView leads={filteredLeads} />;
-      case "calendar":
-        return <CalendarView leads={filteredLeads} />;
-      case "analytics":
-        return <AnalyticsView leads={filteredLeads} />;
-      case "all":
-      default:
-        return (
-          <>
-            <div className="mb-8 flex justify-between">
-              <FilterBuilder
-                filters={filters}
-                onAddFilter={addFilter}
-                onRemoveFilter={removeFilter}
-                onFilterChange={updateFilter}
-                selectedLeads={selectedLeads}
-                onImportCSV={handleImportCSV}
-                setFilters={setFilters}
-              />
-            </div>
-
-            <LeadTable
-              leads={filteredLeads}
-              selectedLeads={selectedLeads}
-              onSelectLeads={setSelectedLeads}
-            />
-          </>
-        );
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <Sidebar
@@ -75,10 +36,10 @@ export const LeadsManagement: React.FC = () => {
         onDeleteFilter={onDeleteFilter}
       />
 
-      <div className="flex-1 pl-64">
+      <div className="flex-1 pl-64 bg-gray-100">
         <div className="container mx-auto px-4 py-8 pt-20">
-          {/* Header Section */}
-          <div className="flex items-center justify-between mb-8 bg-gray-100 sticky top-0 py-4 z-10">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8 bg-gray-100 sticky top-0 py-4 z-10 w-full max-w-[1228px] ">
             <div className="flex items-center">
               <Users className="w-8 h-8 text-green-600 mr-3" />
               <h1 className="text-2xl font-bold text-gray-900">
@@ -112,7 +73,38 @@ export const LeadsManagement: React.FC = () => {
             )}
           </div>
 
-          {renderView()}
+          {/* Conditional rendering for FilterBuilder */}
+          {currentView !== "email" && (
+            <div className="mb-8 w-full max-w-[1228px] ">
+              <FilterBuilder
+                filters={filters}
+                onAddFilter={addFilter}
+                onRemoveFilter={removeFilter}
+                onFilterChange={updateFilter}
+                selectedLeads={selectedLeads}
+                onImportCSV={handleImportCSV}
+                setFilters={setFilters}
+                leads={filteredLeads}
+              />
+            </div>
+          )}
+
+          {/* Conditional rendering for email view */}
+          {currentView === "email" ? (
+            <div className="email-view">
+              {/* Render your Email View component or content here */}
+              <EmailTemplate leads={filteredLeads} />
+            </div>
+          ) : (
+            // Make LeadTable scrollable horizontally for other views
+            <div className="overflow-x-auto max-w-full">
+              <LeadTable
+                leads={filteredLeads}
+                selectedLeads={selectedLeads}
+                onSelectLeads={setSelectedLeads}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

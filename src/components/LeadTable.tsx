@@ -1,18 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Lead } from "../types";
-import { TableIcon, Edit2, Download, Trash2 } from "lucide-react";
+import { TableIcon, Edit2, Download, Trash2, Mail } from "lucide-react";
 import { Modal } from "./Modal";
 import { useLeads } from "./LeadsProvider";
 import { ConfirmationModal } from "./ConfirmationModal";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   leads: Lead[];
   selectedLeads: string[];
   onSelectLeads: (selectedIds: string[]) => void;
 }
-
-const STATUS_OPTIONS = ["New", "In Progress", "Closed"] as const;
-type LeadStatus = (typeof STATUS_OPTIONS)[number];
 
 export const LeadTable: React.FC<Props> = ({
   leads,
@@ -26,16 +24,26 @@ export const LeadTable: React.FC<Props> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
-  // Calculate the index of the last lead on the current page
+  // Dynamic table headers based on lead data
+  const tableHeaders = useMemo(() => {
+    if (leads.length === 0) return [];
+    const sampleLead = leads[0];
+    return Object.keys(sampleLead)
+      .filter((key) => key !== "id") // Exclude id from visible columns
+      .map((key) => ({
+        key,
+        label:
+          key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, " $1"),
+        visible: true,
+      }));
+  }, [leads]);
+
+  // Calculate pagination
   const indexOfLastLead = currentPage * recordsPerPage;
-  // Calculate the index of the first lead on the current page
   const indexOfFirstLead = indexOfLastLead - recordsPerPage;
-  // Get the current leads to display
   const currentLeads = leads.slice(indexOfFirstLead, indexOfLastLead);
-
-  // Calculate total pages
   const totalPages = Math.ceil(leads.length / recordsPerPage);
-
+  const navigate = useNavigate();
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       onSelectLeads(leads.map((lead) => lead.id.toString()));
@@ -49,14 +57,6 @@ export const LeadTable: React.FC<Props> = ({
     leadId: string
   ) => {
     e.stopPropagation();
-    const selectedLead = leads.find((lead) => lead.id.toString() === leadId);
-    if (selectedLead) {
-      console.log(
-        "Selected Lead Date:",
-        new Date(selectedLead.lastContact).toString()
-      );
-    }
-
     if (selectedLeads.includes(leadId)) {
       onSelectLeads(selectedLeads.filter((id) => id !== leadId));
     } else {
@@ -82,35 +82,26 @@ export const LeadTable: React.FC<Props> = ({
   };
 
   const handleExport = () => {
-    // If there are edits, export all leads, otherwise export only selected leads
     const dataToExport = hasEdits
       ? leads
       : leads.filter((lead) => selectedLeads.includes(lead.id.toString()));
 
-    // Convert to CSV
-    const headers = [
-      "name",
-      "email",
-      "company",
-      "industry",
-      "status",
-      "value",
-      "lastContact",
-    ];
+    const headers = tableHeaders
+      .filter((header) => header.visible)
+      .map((header) => header.key);
+
     const csvContent = [
       headers.join(","),
       ...dataToExport.map((lead) =>
         headers
           .map((header) => {
             const value = lead[header as keyof Lead];
-            // Handle special cases like dates and numbers
-            if (header === "lastContact") {
-              return new Date(value as string).toLocaleDateString();
+            if (value instanceof Date) {
+              return new Date(value).toLocaleDateString();
             }
-            if (header === "value") {
-              return `"$${(value as number).toLocaleString()}"`;
+            if (typeof value === "number") {
+              return `"$${value.toLocaleString()}"`;
             }
-            // Escape quotes and wrap in quotes if contains comma
             const stringValue = String(value);
             return stringValue.includes(",")
               ? `"${stringValue.replace(/"/g, '""')}"`
@@ -120,7 +111,6 @@ export const LeadTable: React.FC<Props> = ({
       ),
     ].join("\n");
 
-    // Create and trigger download
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -134,7 +124,6 @@ export const LeadTable: React.FC<Props> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // Reset states after export
     setHasEdits(false);
     onSelectLeads([]);
   };
@@ -162,7 +151,9 @@ export const LeadTable: React.FC<Props> = ({
       setCurrentPage(currentPage - 1);
     }
   };
-
+  const handleSendEmail = () => {
+    navigate("/leads?view=email"); // Navigation to the Email Templates view
+  };
   return (
     <div className="overflow-x-auto bg-white rounded-lg shadow-md">
       {leads.length === 0 ? (
@@ -172,7 +163,18 @@ export const LeadTable: React.FC<Props> = ({
         </div>
       ) : (
         <>
-          <div className="p-4 border-b flex justify-end">
+          {/* Fixed Export Button */}
+          <div className="p-4 border-b flex justify-start items-center sticky top-0 bg-white">
+            <button
+              onClick={handleSendEmail}
+              className={`flex items-center px-4 py-2 mr-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
+                
+                  bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Email
+            </button>
             <button
               onClick={handleExport}
               disabled={selectedLeads.length === 0 && !hasEdits}
@@ -188,136 +190,102 @@ export const LeadTable: React.FC<Props> = ({
                 : `Export Selected (${selectedLeads.length})`}
             </button>
           </div>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedLeads.length === leads.length && leads.length > 0
-                    }
-                    onChange={handleSelectAll}
-                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                  />
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Name
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Company
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Value
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Last Contact
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentLeads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRowClick(lead)}
-                >
-                  <td
-                    className="px-6 py-4 whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 table-auto table-layout-fixed">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left w-12">
                     <input
                       type="checkbox"
-                      checked={selectedLeads.includes(lead.id.toString())}
-                      onChange={(e) => handleSelectLead(e, lead.id.toString())}
+                      checked={
+                        selectedLeads.length === leads.length &&
+                        leads.length > 0
+                      }
+                      onChange={handleSelectAll}
                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                     />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <div className="text-sm font-medium text-gray-900">
-                        {lead.name}
-                      </div>
-                      <div className="text-sm text-gray-500">{lead.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{lead.company}</div>
-                    <div className="text-sm text-gray-500">{lead.industry}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${
-                        lead.status === "New"
-                          ? "bg-blue-100 text-blue-800"
-                          : lead.status === "In Progress"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
+                  </th>
+                  {tableHeaders.map((header) => (
+                    <th
+                      key={header.key}
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto min-w-0 truncate"
                     >
-                      {lead.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${lead.value.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(lead.lastContact).toLocaleDateString("en-GB")}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={(e) => handleEditClick(e, lead)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Edit lead"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) =>
-                          handleDeleteClick(e, lead.id.toString())
-                        }
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete lead"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+                      {header.label}
+                    </th>
+                  ))}
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+                  >
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentLeads.map((lead) => (
+                  <tr
+                    key={lead.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleRowClick(lead)}
+                  >
+                    <td
+                      className="px-6 py-4 whitespace-nowrap w-12"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedLeads.includes(lead.id.toString())}
+                        onChange={(e) =>
+                          handleSelectLead(e, lead.id.toString())
+                        }
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                    </td>
+                    {tableHeaders.map((header) => (
+                      <td
+                        key={header.key}
+                        className="px-6 py-4 whitespace-nowrap text-sm min-w-0 truncate"
+                      >
+                        {header.key === "lastContact"
+                          ? new Date(
+                              lead[header.key] as Date
+                            ).toLocaleDateString()
+                          : header.key === "value"
+                          ? `$${(lead[header.key] as number).toLocaleString()}`
+                          : String(lead[header.key as keyof Lead])}
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={(e) => handleEditClick(e, lead)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Edit lead"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) =>
+                            handleDeleteClick(e, lead.id.toString())
+                          }
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete lead"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          {/* Pagination Controls */}
-
-          <div className="flex justify-between items-center m-4">
-            <span className="text-sm text-gray-700">
+          {/* Pagination */}
+          <div className="flex justify-center items-center m-4">
+            <span className="text-sm text-gray-700 p-4">
               Showing {indexOfFirstLead + 1} to{" "}
               {Math.min(indexOfLastLead, leads.length)} of {leads.length}{" "}
               results
@@ -336,15 +304,13 @@ export const LeadTable: React.FC<Props> = ({
               </button>
               {Array.from({ length: totalPages }, (_, index) => index + 1)
                 .filter((page) => {
-                  // Show first few pages, last page, and a few pages around the current one
                   const showFirstPages = page <= 9;
                   const showLastPage = page === totalPages;
                   const showAroundCurrent = Math.abs(currentPage - page) <= 2;
-
                   return showFirstPages || showLastPage || showAroundCurrent;
                 })
                 .map((page, idx, arr) => {
-                  const isEllipsis = idx > 0 && arr[idx] > arr[idx - 1] + 1; // Check for skipped pages
+                  const isEllipsis = idx > 0 && arr[idx] > arr[idx - 1] + 1;
                   return isEllipsis ? (
                     <span key={`ellipsis-${idx}`} className="px-2">
                       ...
@@ -379,7 +345,6 @@ export const LeadTable: React.FC<Props> = ({
         </>
       )}
 
-      {/* Edit Lead Modal */}
       <Modal
         isOpen={!!editingLead}
         onClose={() => setEditingLead(null)}
@@ -387,80 +352,61 @@ export const LeadTable: React.FC<Props> = ({
       >
         {editingLead && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
-              </label>
-              <input
-                type="text"
-                value={editingLead.name}
-                onChange={(e) =>
-                  setEditingLead({ ...editingLead, name: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                value={editingLead.email}
-                readOnly
-                className="mt-1 text-gray-600 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Company
-              </label>
-              <input
-                type="text"
-                value={editingLead.company}
-                onChange={(e) =>
-                  setEditingLead({ ...editingLead, company: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                value={editingLead.status}
-                onChange={(e) =>
-                  setEditingLead({
-                    ...editingLead,
-                    status: e.target.value as LeadStatus,
-                  })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              >
-                {STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Value
-              </label>
-              <input
-                type="number"
-                value={editingLead.value}
-                onChange={(e) =>
-                  setEditingLead({
-                    ...editingLead,
-                    value: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              />
-            </div>
+            {tableHeaders.map((header) => (
+              <div key={header.key}>
+                <label className="block text-sm font-medium text-gray-700">
+                  {header.label}
+                </label>
+                {header.key === "status" ? (
+                  <select
+                    value={editingLead[header.key]}
+                    onChange={(e) =>
+                      setEditingLead({
+                        ...editingLead,
+                        [header.key]: e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  ></select>
+                ) : header.key === "lastContact" ? (
+                  <input
+                    type="date"
+                    value={
+                      new Date(editingLead[header.key] as Date)
+                        .toISOString()
+                        .split("T")[0]
+                    }
+                    onChange={(e) =>
+                      setEditingLead({
+                        ...editingLead,
+                        [header.key]: new Date(e.target.value),
+                      })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  />
+                ) : (
+                  <input
+                    type={
+                      typeof editingLead[header.key as keyof Lead] === "number"
+                        ? "number"
+                        : "text"
+                    }
+                    value={editingLead[header.key as keyof Lead]}
+                    onChange={(e) =>
+                      setEditingLead({
+                        ...editingLead,
+                        [header.key]:
+                          typeof editingLead[header.key as keyof Lead] ===
+                          "number"
+                            ? parseFloat(e.target.value) || 0
+                            : e.target.value,
+                      })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  />
+                )}
+              </div>
+            ))}
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setEditingLead(null)}
@@ -479,7 +425,6 @@ export const LeadTable: React.FC<Props> = ({
         )}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={!!deletingLeadId}
         onClose={() => setDeletingLeadId(null)}

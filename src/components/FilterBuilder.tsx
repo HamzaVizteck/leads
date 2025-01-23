@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Filter, Lead } from "../types";
 import { Plus, Trash2, FilterX as FilterIcon } from "lucide-react";
-import FilterModal from "./FilterModal";
-import FilterPill from "./FilterPill";
+import { FilterModal } from "./FilterModal";
+import { FilterPill } from "./FilterPill";
 import { CSVImport } from "./CSVImport";
 import { useLeads } from "./LeadsProvider";
 import { ConfirmationModal } from "./ConfirmationModal";
@@ -20,6 +20,7 @@ type Props = {
   selectedLeads: string[];
   onImportCSV: (importedLeads: Lead[]) => void;
   setFilters: (filters: Filter[]) => void;
+  leads: Lead[];
 };
 
 export const FilterBuilder: React.FC<Props> = ({
@@ -30,14 +31,15 @@ export const FilterBuilder: React.FC<Props> = ({
   selectedLeads,
   onImportCSV,
   setFilters,
+  leads,
 }) => {
   const { deleteLeads } = useLeads();
   const [showAddFilterModal, setShowAddFilterModal] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   useEffect(() => {
-    resetFilters(); // Reset filters on full page reload
-  }, []); // Empty dependency array to run only on mount
+    resetFilters();
+  }, []);
 
   const handleDelete = () => {
     setShowDeleteConfirmation(true);
@@ -50,21 +52,20 @@ export const FilterBuilder: React.FC<Props> = ({
 
   const resetFilters = () => {
     const resetFilters = filters.map((filter) => {
-      // Reset the value based on the filter type
       if (filter.type === "dropdown") {
-        return { ...filter, value: "" }; // Reset dropdown value to an empty string
+        return { ...filter, value: "" };
       } else if (filter.type === "number") {
-        return { ...filter, value: 0 }; // Reset number value to 0
+        return { ...filter, value: 0 };
       } else {
-        return { ...filter, value: "" }; // Reset other types to empty string
+        return { ...filter, value: "" };
       }
     });
 
-    setFilters(resetFilters); // Update the filters with reset values
+    setFilters(resetFilters);
   };
 
   return (
-    <div className="space-y-4 container mx-auto bg-white p-4 rounded-md shadow-md">
+    <div className="space-y-4 container  bg-white p-4  rounded-md shadow-md sticky top-0 z-10">
       <div className="flex justify-between items-center mb-4">
         <div className="flex space-x-3">
           <button
@@ -80,7 +81,7 @@ export const FilterBuilder: React.FC<Props> = ({
           <button
             onClick={resetFilters}
             className="p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            title="Reset Filters" // Tooltip text on hover
+            title="Reset Filters"
           >
             <FilterIcon className="w-4 h-4" />
           </button>
@@ -100,7 +101,6 @@ export const FilterBuilder: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Active Filters Display */}
       <div className="flex flex-wrap gap-2">
         {filters.map((filter) => (
           <FilterPill
@@ -108,18 +108,18 @@ export const FilterBuilder: React.FC<Props> = ({
             filter={filter}
             onRemove={onRemoveFilter}
             onUpdate={onFilterChange}
+            leads={leads}
           />
         ))}
       </div>
 
-      {/* Filter Modal */}
       <FilterModal
         isOpen={showAddFilterModal}
         onClose={() => setShowAddFilterModal(false)}
         onAddFilter={onAddFilter}
+        leads={leads}
       />
 
-      {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteConfirmation}
         onClose={() => setShowDeleteConfirmation(false)}

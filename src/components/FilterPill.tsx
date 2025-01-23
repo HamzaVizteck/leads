@@ -1,32 +1,42 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronDown, ChevronUp, X, Plus } from "lucide-react";
 import { Filter, FilterOperator, Lead, NumberCondition } from "../types";
-import { leads } from "../data/leads";
 
 interface FilterPillProps {
   filter: Filter;
   onRemove: (id: string) => void;
   onUpdate: (filter: Filter) => void;
+  leads: Lead[];
 }
 
-export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
+export const FilterPill: React.FC<FilterPillProps> = ({
+  filter,
+  onUpdate,
+  leads,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [allConditions] = useState<NumberCondition[]>(() => {
-    // Initialize with the conditions that were added when creating the filter
-    if (filter.type === "number" && Array.isArray(filter.value)) {
-      return filter.value as NumberCondition[];
-    }
-    return [];
-  });
   const [numberConditions, setNumberConditions] = useState<NumberCondition[]>(
-    []
+    Array.isArray(filter.value) ? (filter.value as NumberCondition[]) : []
   );
   const [newCondition, setNewCondition] = useState<NumberCondition>({
     operator: "=",
     value: 0,
     isActive: true,
   });
+
+  // Get unique values for dropdown options
+  const uniqueValues = useMemo(() => {
+    if (!leads.length) return [];
+    return Array.from(new Set(leads.map((lead) => String(lead[filter.field]))));
+  }, [leads, filter.field]);
+
+  // Detect field type
+  const fieldType = useMemo(() => {
+    if (!leads.length) return "string";
+    const value = leads[0][filter.field];
+    return value instanceof Date ? "date" : typeof value;
+  }, [leads, filter.field]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,10 +53,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  const uniqueValues = Array.from(
-    new Set(leads.map((lead) => String(lead[filter.field])))
-  );
 
   const handleSelectCondition = (selectedCondition: NumberCondition) => {
     if (filter.type === "number") {
@@ -72,12 +78,11 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
         value: updatedConditions,
       });
     } else if (filter.type === "date") {
-      // Handle date selection logic here
       const currentConditions = filter.value as NumberCondition[];
       const isSelected = currentConditions.some(
         (c) =>
           c.operator === selectedCondition.operator &&
-          c.value === new Date(selectedCondition.value).getTime() // Ensure comparison is done with timestamps
+          c.value === new Date(selectedCondition.value).getTime()
       );
 
       const updatedConditions = isSelected
@@ -110,11 +115,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
     );
   };
 
-  const isDateField = (field: keyof Lead) => {
-    const value = leads[0][field];
-    return value instanceof Date;
-  };
-
   const handleAddCondition = () => {
     const newConditionWithActive: NumberCondition = {
       ...newCondition,
@@ -123,7 +123,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
     setNumberConditions([...numberConditions, newConditionWithActive]);
     setNewCondition({ operator: "=", value: 0, isActive: true });
 
-    // Update the filter in LeadsProvider
     onUpdate({
       ...filter,
       value: [...numberConditions, newConditionWithActive],
@@ -136,7 +135,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
     );
     setNumberConditions(updatedConditions);
 
-    // Update the filter in LeadsProvider
     onUpdate({
       ...filter,
       value: updatedConditions,
@@ -147,10 +145,6 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
     setNumberConditions(numberConditions.filter((_, i) => i !== index));
   };
 
-  console.log("Filter Type:", filter.type);
-  console.log("Field Value:", leads[0][filter.field]);
-  console.log("Is Date Field:", isDateField(filter.field));
-
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex items-center gap-2 bg-green-50 border rounded-full px-4 py-2 shadow-lg">
@@ -158,7 +152,7 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
 
         {filter.type === "search" && (
           <>
-            {isDateField(filter.field) ? (
+            {fieldType === "date" ? (
               <input
                 type="date"
                 value={filter.value as string}
@@ -283,7 +277,7 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
         {filter.type === "date" && isOpen && (
           <div className="absolute top-full mt-2 w-72 bg-white border rounded-lg shadow-lg z-10">
             <div className="p-4">
-              {allConditions.map((condition, index) => (
+              {numberConditions.map((condition, index) => (
                 <div key={index} className="flex items-center gap-2 mb-2">
                   <label className="flex items-center p-2 hover:bg-gray-50 w-full">
                     <input
@@ -335,4 +329,4 @@ export default function FilterPill({ filter, onUpdate }: FilterPillProps) {
       )}
     </div>
   );
-}
+};

@@ -1,20 +1,20 @@
 export type Lead = {
   id: number;
-  name: string;
-  company: string;
-  email: string;
-  phone: string;
-  status: string;
-  source: string;
-  industry: string;
-  lastContact: Date;
-  value: number;
+  [key: string]: any; // Allow dynamic fields
+};
+
+export type FieldType = "string" | "number" | "date" | "boolean";
+
+export type Field = {
+  key: string;
+  label: string;
+  type: FieldType;
 };
 
 export type Filter = {
   id: string;
   name: string;
-  field: keyof Lead;
+  field: string; // Changed from keyof Lead to string to support dynamic fields
   type: "search" | "dropdown" | "number" | "date";
   value: string | number | string[] | NumberCondition[];
   dropdownOptions?: string[];
@@ -36,15 +36,16 @@ export interface NumberCondition {
 
 export interface DateCondition {
   operator: FilterOperator;
-  value: string; // We'll store the date as a string (ISO format)
+  value: string;
 }
 
 export interface FilterField {
-  key: keyof Lead;
+  key: string;
   label: string;
   type: "search" | "dropdown" | "number" | "date";
   value?: string | string[] | NumberCondition[];
 }
+
 export interface Template {
   id: string;
   name: string;
