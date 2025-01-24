@@ -4,24 +4,27 @@ import { TableIcon, Edit2, Download, Trash2, Mail } from "lucide-react";
 import { Modal } from "./Modal";
 import { useLeads } from "./LeadsProvider";
 import { ConfirmationModal } from "./ConfirmationModal";
-import { useNavigate } from "react-router-dom";
 
 interface Props {
   leads: Lead[];
   selectedLeads: string[];
   onSelectLeads: (selectedIds: string[]) => void;
+  onViewChange: (view: string) => void; // Add this line to accept the onViewChange prop
 }
 
 export const LeadTable: React.FC<Props> = ({
   leads,
   selectedLeads,
   onSelectLeads,
+  onViewChange,
 }) => {
   const { updateLead, deleteLeads } = useLeads();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [hasEdits, setHasEdits] = useState(false);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   const recordsPerPage = 10;
 
   // Dynamic table headers based on lead data
@@ -43,7 +46,6 @@ export const LeadTable: React.FC<Props> = ({
   const indexOfFirstLead = indexOfLastLead - recordsPerPage;
   const currentLeads = leads.slice(indexOfFirstLead, indexOfLastLead);
   const totalPages = Math.ceil(leads.length / recordsPerPage);
-  const navigate = useNavigate();
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       onSelectLeads(leads.map((lead) => lead.id.toString()));
@@ -127,16 +129,21 @@ export const LeadTable: React.FC<Props> = ({
     setHasEdits(false);
     onSelectLeads([]);
   };
+  const showSuccessMessage = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+  };
 
   const handleDeleteClick = (e: React.MouseEvent, leadId: string) => {
-    e.stopPropagation();
-    setDeletingLeadId(leadId);
+    e.stopPropagation(); // Prevent event bubbling
+    setDeletingLeadId(leadId); // Open the confirmation modal
   };
 
   const handleConfirmDelete = () => {
     if (deletingLeadId) {
-      deleteLeads([deletingLeadId]);
-      setDeletingLeadId(null);
+      deleteLeads([deletingLeadId]); // Trigger deletion logic
+      setDeletingLeadId(null); // Close the confirmation modal
+      showSuccessMessage("Lead deleted successfully"); // Show success message
     }
   };
 
@@ -152,7 +159,8 @@ export const LeadTable: React.FC<Props> = ({
     }
   };
   const handleSendEmail = () => {
-    navigate("/leads?view=email"); // Navigation to the Email Templates view
+    // Switch view to "email" (Email Templates view)
+    onViewChange("email"); // This will change the view to "Email Templates"
   };
   return (
     <div className="overflow-x-auto bg-white rounded-lg shadow-md">
@@ -167,13 +175,19 @@ export const LeadTable: React.FC<Props> = ({
           <div className="p-4 border-b flex justify-start items-center sticky top-0 bg-white">
             <button
               onClick={handleSendEmail}
+              disabled={selectedLeads.length === 0}
               className={`flex items-center px-4 py-2 mr-2 text-sm font-medium bg-blue-600
-                 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 hover:bg-blue-800 focus:ring-blue-500"
-              }`}
+                   text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 hover:bg-blue-800 focus:ring-blue-500
+                   ${
+                     selectedLeads.length === 0
+                       ? "bg-gray-400 cursor-not-allowed"
+                       : "bg-blue-600 hover:bg-blue-700"
+                   }`}
             >
               <Mail className="w-4 h-4 mr-2" />
-              Send Email
+              Send Email ({selectedLeads.length})
             </button>
+
             <button
               onClick={handleExport}
               disabled={selectedLeads.length === 0 && !hasEdits}
@@ -356,18 +370,7 @@ export const LeadTable: React.FC<Props> = ({
                 <label className="block text-sm font-medium text-gray-700">
                   {header.label}
                 </label>
-                {header.key === "status" ? (
-                  <select
-                    value={editingLead[header.key]}
-                    onChange={(e) =>
-                      setEditingLead({
-                        ...editingLead,
-                        [header.key]: e.target.value,
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                  ></select>
-                ) : header.key === "lastContact" ? (
+                {header.key === "lastContact" ? (
                   <input
                     type="date"
                     value={
@@ -423,14 +426,22 @@ export const LeadTable: React.FC<Props> = ({
           </div>
         )}
       </Modal>
-
       <ConfirmationModal
         isOpen={!!deletingLeadId}
         onClose={() => setDeletingLeadId(null)}
-        onConfirm={handleConfirmDelete}
+        onConfirm={handleConfirmDelete} // Only trigger the confirmed delete function here
         title="Delete Lead"
         message="Are you sure you want to delete this lead? This action cannot be undone."
       />
+
+      {successMessage && (
+        <div
+          className="fixed top-4 right-4 z-40 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"
+          role="alert"
+        >
+          {successMessage}
+        </div>
+      )}
     </div>
   );
 };

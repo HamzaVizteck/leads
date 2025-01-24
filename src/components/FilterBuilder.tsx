@@ -17,9 +17,10 @@ type Props = {
   }) => void;
   onRemoveFilter: (id: string) => void;
   onFilterChange: (filter: Filter) => void;
-  selectedLeads: string[];
+  selectedLeads: string[]; // Comes from LeadTable
   onImportCSV: (importedLeads: Lead[]) => void;
   setFilters: (filters: Filter[]) => void;
+  resetSelectedLeads: () => void; // Add this prop to reset selected leads
   leads: Lead[];
 };
 
@@ -28,26 +29,37 @@ export const FilterBuilder: React.FC<Props> = ({
   onAddFilter,
   onRemoveFilter,
   onFilterChange,
-  selectedLeads,
+  selectedLeads, // Use this directly
   onImportCSV,
   setFilters,
+  resetSelectedLeads,
   leads,
 }) => {
   const { deleteLeads } = useLeads();
   const [showAddFilterModal, setShowAddFilterModal] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     resetFilters();
   }, []);
 
+  const showSuccessMessage = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+  };
+
   const handleDelete = () => {
-    setShowDeleteConfirmation(true);
+    setShowDeleteConfirmation(true); // Open confirmation modal
   };
 
   const handleConfirmDelete = () => {
-    deleteLeads(selectedLeads);
-    setShowDeleteConfirmation(false);
+    if (selectedLeads.length > 0) {
+      deleteLeads(selectedLeads); // Delete the selected leads
+      setShowDeleteConfirmation(false); // Close the confirmation modal
+      showSuccessMessage("Lead(s) deleted successfully"); // Show success message
+      resetSelectedLeads(); // Reset the selected leads (clear the count)
+    }
   };
 
   const resetFilters = () => {
@@ -65,7 +77,7 @@ export const FilterBuilder: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4 container  bg-white p-4  rounded-md shadow-md sticky top-0 z-10">
+    <div className="space-y-4 container bg-white p-4 rounded-md shadow-md sticky top-0 z-10">
       <div className="flex justify-between items-center mb-4">
         <div className="flex space-x-3">
           <button
@@ -88,7 +100,7 @@ export const FilterBuilder: React.FC<Props> = ({
           <CSVImport onImport={onImportCSV} />
           <button
             onClick={handleDelete}
-            disabled={selectedLeads.length === 0}
+            disabled={selectedLeads.length === 0} // Enable/disable based on selectedLeads
             className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
               selectedLeads.length === 0
                 ? "bg-gray-400 cursor-not-allowed"
@@ -127,6 +139,14 @@ export const FilterBuilder: React.FC<Props> = ({
         title="Delete Leads"
         message={`Are you sure you want to delete ${selectedLeads.length} selected lead(s)? This action cannot be undone.`}
       />
+      {successMessage && (
+        <div
+          className="fixed top-12 right-4 z-50 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"
+          role="alert"
+        >
+          {successMessage}
+        </div>
+      )}
     </div>
   );
 };

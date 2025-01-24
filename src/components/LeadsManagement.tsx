@@ -24,7 +24,12 @@ export const LeadsManagement: React.FC = () => {
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState("all");
-
+  const resetSelectedLeads = () => {
+    setSelectedLeads([]); // Reset the selection
+  };
+  const handleViewChange = (view: string) => {
+    setCurrentView(view); // Update the current view
+  };
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <Sidebar
@@ -82,6 +87,7 @@ export const LeadsManagement: React.FC = () => {
                 onRemoveFilter={removeFilter}
                 onFilterChange={updateFilter}
                 selectedLeads={selectedLeads}
+                resetSelectedLeads={resetSelectedLeads}
                 onImportCSV={handleImportCSV}
                 setFilters={setFilters}
                 leads={filteredLeads}
@@ -102,6 +108,7 @@ export const LeadsManagement: React.FC = () => {
                 leads={filteredLeads}
                 selectedLeads={selectedLeads}
                 onSelectLeads={setSelectedLeads}
+                onViewChange={handleViewChange} // Passing the view change handler
               />
             </div>
           )}
