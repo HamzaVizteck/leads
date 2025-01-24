@@ -300,7 +300,25 @@ export const FilterPill: React.FC<FilterPillProps> = ({
 
       {filter.type === "dropdown" && isOpen && (
         <div className="absolute top-full mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-          <div className="p-2 max-h-60 overflow-y-auto">
+          <div className="p-2">
+            {/* Select All checkbox */}
+            <label className="flex items-center p-2 hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={
+                  Array.isArray(filter.value) &&
+                  (filter.value as string[]).length === uniqueValues.length
+                }
+                onChange={(e) => {
+                  const values = e.target.checked ? uniqueValues : [];
+                  onUpdate({ ...filter, value: values });
+                }}
+                className="mr-2"
+              />
+              Select All
+            </label>
+
+            {/* Individual options */}
             {uniqueValues.map((value) => (
               <label
                 key={value}
@@ -315,8 +333,10 @@ export const FilterPill: React.FC<FilterPillProps> = ({
                   onChange={(e) => {
                     const values = (filter.value as string[]) || [];
                     const newValues = e.target.checked
-                      ? [...values, value]
-                      : values.filter((v) => v !== value);
+                      ? [...values, value] // Add the value to the array if checked
+                      : values.filter((v) => v !== value); // Remove the value if unchecked
+
+                    // Update filter with the new values array
                     onUpdate({ ...filter, value: newValues });
                   }}
                   className="mr-2"

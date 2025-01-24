@@ -27,8 +27,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     value: 0,
     isActive: true,
   });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Dynamically detect fields and their types
   const fields = useMemo(() => {
     if (leads.length === 0) return [];
     const sampleLead = leads[0];
@@ -60,6 +60,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
         } Filter`,
         value: selectedType === "number" ? numberConditions : undefined,
       });
+      setSuccessMessage("Filter added successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
       onClose();
       resetModal();
     }
@@ -114,6 +116,12 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             <X size={20} />
           </button>
         </div>
+
+        {successMessage && (
+          <div className="fixed top-4 right-4 z-50 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow">
+            {successMessage}
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Field Selection */}
@@ -274,8 +282,10 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={!selectedField}
-            className={`w-full py-2 px-4 rounded-lg text-white font-medium bg-green-500 hover:bg-green-700 ${
-              !selectedField ? "cursor-not-allowed" : ""
+            className={`w-full py-2 px-4 rounded-lg text-white font-medium ${
+              !selectedField
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-700"
             }`}
           >
             Add Filter

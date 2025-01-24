@@ -24,14 +24,26 @@ export const LeadsManagement: React.FC = () => {
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState("all");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null); // Success message state
+
+  // Reset the selection of leads
   const resetSelectedLeads = () => {
     setSelectedLeads([]); // Reset the selection
   };
+
+  // Show success message and auto-clear it after 3 seconds
+  const showSuccessMessage = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+  };
+
   const handleViewChange = (view: string) => {
     setCurrentView(view); // Update the current view
   };
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
+      {/* Sidebar */}
       <Sidebar
         leads={filteredLeads}
         currentView={currentView}
@@ -41,6 +53,7 @@ export const LeadsManagement: React.FC = () => {
         onDeleteFilter={onDeleteFilter}
       />
 
+      {/* Main Content */}
       <div className="flex-1 pl-64 bg-gray-100">
         <div className="container mx-auto px-4 py-8 pt-20">
           {/* Header */}
@@ -59,10 +72,21 @@ export const LeadsManagement: React.FC = () => {
                   : "Leads Management"}
               </h1>
             </div>
+
             {(currentView === "all" || currentView === "grid") && (
               <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-500">
-                  {filteredLeads.length} leads found
+                <div
+                  className={`text-sm px-4 py-2 rounded-md ${
+                    searchQuery ||
+                    filters.some(
+                      (filter) => filter.value && filter.value.length > 0
+                    )
+                      ? "bg-green-100 border border-green-400 text-green-700"
+                      : "bg-gray-100 border border-gray-300 text-gray-700"
+                  }`}
+                >
+                  {filteredLeads.length} lead
+                  {filteredLeads.length === 1 ? "" : "s"} found
                 </div>
                 <div className="relative z-20">
                   <input
@@ -78,12 +102,25 @@ export const LeadsManagement: React.FC = () => {
             )}
           </div>
 
-          {/* Conditional rendering for FilterBuilder */}
+          {/* Success Message */}
+          {successMessage && (
+            <div
+              className="fixed top-4 right-4 z-50 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"
+              role="alert"
+            >
+              {successMessage}
+            </div>
+          )}
+
+          {/* Filter Builder */}
           {currentView !== "email" && (
             <div className="mb-8 w-full max-w-[1228px] ">
               <FilterBuilder
                 filters={filters}
-                onAddFilter={addFilter}
+                onAddFilter={(filter) => {
+                  addFilter(filter);
+                  showSuccessMessage("Filter added successfully!"); // Show success message
+                }}
                 onRemoveFilter={removeFilter}
                 onFilterChange={updateFilter}
                 selectedLeads={selectedLeads}
@@ -98,17 +135,16 @@ export const LeadsManagement: React.FC = () => {
           {/* Conditional rendering for email view */}
           {currentView === "email" ? (
             <div className="email-view">
-              {/* Render your Email View component or content here */}
               <EmailTemplate leads={filteredLeads} />
             </div>
           ) : (
-            // Make LeadTable scrollable horizontally for other views
             <div className="overflow-x-auto max-w-full">
               <LeadTable
                 leads={filteredLeads}
                 selectedLeads={selectedLeads}
                 onSelectLeads={setSelectedLeads}
-                onViewChange={handleViewChange} // Passing the view change handler
+                onViewChange={handleViewChange}
+                onSuccessMessage={showSuccessMessage} // Pass success message handler
               />
             </div>
           )}

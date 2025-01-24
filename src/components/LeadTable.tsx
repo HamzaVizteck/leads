@@ -24,7 +24,7 @@ export const LeadTable: React.FC<Props> = ({
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
+  const [isSaving, setIsSaving] = useState(false);
   const recordsPerPage = 10;
 
   // Dynamic table headers based on lead data
@@ -71,11 +71,18 @@ export const LeadTable: React.FC<Props> = ({
     setEditingLead(lead);
   };
 
-  const handleUpdateLead = () => {
+  const handleUpdateLead = async () => {
     if (editingLead) {
-      updateLead(editingLead);
-      setHasEdits(true);
-      setEditingLead(null);
+      setIsSaving(true); // Start saving
+      try {
+        await updateLead(editingLead); // Assuming `updateLead` is an async function
+        setEditingLead(null); // Close the modal
+        showSuccessMessage("Changes saved successfully!"); // Show success message
+      } catch (error) {
+        console.error("Error saving changes:", error); // Handle error (optional)
+      } finally {
+        setIsSaving(false); // Stop saving
+      }
     }
   };
 
@@ -131,7 +138,7 @@ export const LeadTable: React.FC<Props> = ({
   };
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 5000); // Clear the message after 3 seconds
   };
 
   const handleDeleteClick = (e: React.MouseEvent, leadId: string) => {
@@ -177,7 +184,7 @@ export const LeadTable: React.FC<Props> = ({
               onClick={handleSendEmail}
               disabled={selectedLeads.length === 0}
               className={`flex items-center px-4 py-2 mr-2 text-sm font-medium bg-blue-600
-                   text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 hover:bg-blue-800 focus:ring-blue-500
+                   text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2  focus:ring-blue-500
                    ${
                      selectedLeads.length === 0
                        ? "bg-gray-400 cursor-not-allowed"
@@ -364,51 +371,60 @@ export const LeadTable: React.FC<Props> = ({
         title="Edit Lead"
       >
         {editingLead && (
-          <div className="space-y-4">
-            {tableHeaders.map((header) => (
-              <div key={header.key}>
-                <label className="block text-sm font-medium text-gray-700">
-                  {header.label}
-                </label>
-                {header.key === "lastContact" ? (
-                  <input
-                    type="date"
-                    value={
-                      new Date(editingLead[header.key] as Date)
-                        .toISOString()
-                        .split("T")[0]
-                    }
-                    onChange={(e) =>
-                      setEditingLead({
-                        ...editingLead,
-                        [header.key]: new Date(e.target.value),
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                  />
-                ) : (
-                  <input
-                    type={
-                      typeof editingLead[header.key as keyof Lead] === "number"
-                        ? "number"
-                        : "text"
-                    }
-                    value={editingLead[header.key as keyof Lead]}
-                    onChange={(e) =>
-                      setEditingLead({
-                        ...editingLead,
-                        [header.key]:
-                          typeof editingLead[header.key as keyof Lead] ===
-                          "number"
-                            ? parseFloat(e.target.value) || 0
-                            : e.target.value,
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                  />
-                )}
-              </div>
-            ))}
+          <div className="space-y-6">
+            {" "}
+            {/* Increased space between fields */}
+            <div className="max-h-[600px] overflow-y-auto">
+              {" "}
+              {/* Scrollable container */}
+              {tableHeaders.map((header) => (
+                <div key={header.key} className="mt-2">
+                  {" "}
+                  {/* Added margin-top to each field */}
+                  <label className="block text-sm font-medium text-gray-700">
+                    {header.label}
+                  </label>
+                  {header.key === "lastContact" ? (
+                    <input
+                      type="date"
+                      value={
+                        new Date(editingLead[header.key] as Date)
+                          .toISOString()
+                          .split("T")[0]
+                      }
+                      onChange={(e) =>
+                        setEditingLead({
+                          ...editingLead,
+                          [header.key]: new Date(e.target.value),
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    />
+                  ) : (
+                    <input
+                      type={
+                        typeof editingLead[header.key as keyof Lead] ===
+                        "number"
+                          ? "number"
+                          : "text"
+                      }
+                      value={editingLead[header.key as keyof Lead]}
+                      onChange={(e) =>
+                        setEditingLead({
+                          ...editingLead,
+                          [header.key]:
+                            typeof editingLead[header.key as keyof Lead] ===
+                            "number"
+                              ? parseFloat(e.target.value) || 0
+                              : e.target.value,
+                        })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setEditingLead(null)}
@@ -418,14 +434,28 @@ export const LeadTable: React.FC<Props> = ({
               </button>
               <button
                 onClick={handleUpdateLead}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
+                disabled={isSaving} // Disable button while saving
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+                  isSaving
+                    ? "bg-green-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
               >
-                Save Changes
+                {isSaving ? "Saving..." : "Save Changes"}
               </button>
+              {successMessage && (
+                <div
+                  className="fixed top-4 right-4 z-40 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"
+                  role="alert"
+                >
+                  {successMessage}
+                </div>
+              )}
             </div>
           </div>
         )}
       </Modal>
+
       <ConfirmationModal
         isOpen={!!deletingLeadId}
         onClose={() => setDeletingLeadId(null)}
