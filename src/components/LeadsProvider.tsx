@@ -20,22 +20,25 @@ import { useAuth } from "../context/AuthContext";
 
 const LEADS_STORAGE_KEY = "crm-leads-data";
 
-interface LeadsContextType {
+export interface LeadsContextType {
   leads: Lead[];
   filters: Filter[];
   savedFilters: SavedFilter[];
-  activeFilterIds: string[];
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  addFilter: (field: FilterField & { filterName: string }) => void;
+  setFilters: (filters: Filter[]) => void;
+  setSavedFilters: (filters: SavedFilter[]) => void;
+  addFilter: (filter: Filter) => void;
   removeFilter: (id: string) => void;
   updateFilter: (filter: Filter) => void;
-  saveFilter: (name: string) => void;
-  onApplyFilter: (savedFilter: SavedFilter) => void;
+  onApplyFilter: (filter: SavedFilter) => void;
   onDeleteFilter: (id: string) => void;
-  handleImportCSV: (importedLeads: Lead[]) => void;
+  updateLead: (lead: Lead) => Promise<void>;
+  deleteLeads: (leadIds: string[]) => void;
+  updateLeads: (leads: Lead[]) => void;
+  setLeads: (leads: Lead[]) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   filteredLeads: Lead[];
-  saveAndActivateFilter: (name: string, filters: Filter[]) => void;
+  activeFilterIds: string[];
   customFields: Array<{
     key: keyof Lead;
     label: string;
@@ -46,17 +49,12 @@ interface LeadsContextType {
     label: string;
     type: "string" | "number" | "all";
   }>;
-  deleteLeads: (leadIds: string[]) => void;
   addCustomField: (field: {
     key: keyof Lead;
     label: string;
     type: "string" | "number" | "all";
   }) => void;
   removeCustomField: (key: keyof Lead) => void;
-  setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
-  updateLead: (updatedLead: Lead) => void;
-  setFilters: (filters: Filter[]) => void;
-  updateLeads: (newLeads: Lead[]) => void;
   userName: string;
 }
 
@@ -418,27 +416,25 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     leads,
     filters,
     savedFilters,
-    activeFilterIds,
-    searchQuery,
-    setSearchQuery,
+    setFilters,
+    setSavedFilters,
     addFilter,
     removeFilter,
     updateFilter,
-    saveFilter,
     onApplyFilter: toggleSavedFilter,
     onDeleteFilter,
-    handleImportCSV,
+    updateLead,
+    deleteLeads,
+    updateLeads,
+    setLeads,
+    searchQuery,
+    setSearchQuery,
     filteredLeads,
-    saveAndActivateFilter,
+    activeFilterIds,
     customFields,
     operators,
-    deleteLeads,
     addCustomField,
     removeCustomField,
-    setLeads,
-    updateLead,
-    setFilters,
-    updateLeads,
     userName,
   };
 

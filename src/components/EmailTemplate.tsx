@@ -1,8 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal } from "./Modal";
 import { Lead } from "../types";
 import { X, Trash2, Edit } from "lucide-react";
 import { SendEmailModal } from "./SendEmailModal";
+import { db } from "../config/firebaseConfig";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Loader from "./Loader";
+
 type Template = {
   id: string;
   name: string;
@@ -23,12 +28,11 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
   const [templateToDelete, setTemplateToDelete] = useState<Template | null>(
     null
   );
-  const [templates, setTemplates] = useState<Template[]>(() => {
-    const saved = localStorage.getItem("email-templates");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const [newTemplate, setNewTemplate] = useState({
     name: "",
@@ -36,18 +40,45 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     content: "",
   });
 
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      if (userId) {
+        setLoading(true);
+        const docRef = doc(db, "users", userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setTemplates(docSnap.data().templates || []);
+        }
+        setLoading(false);
+      }
+    };
+    fetchTemplates();
+  }, [userId]);
+
   const handleDeleteClick = (template: Template) => {
     setTemplateToDelete(template);
   };
 
-  const deleteTemplate = () => {
+  const deleteTemplate = async () => {
     if (!templateToDelete) return;
 
     const updatedTemplates = templates.filter(
       (t) => t.id !== templateToDelete.id
     );
     setTemplates(updatedTemplates);
-    localStorage.setItem("email-templates", JSON.stringify(updatedTemplates));
+
+    if (userId) {
+      await setDoc(doc(db, "users", userId), { templates: updatedTemplates });
+    }
+
     setSuccessMessage("Template deleted successfully!");
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 5000);
@@ -64,19 +95,17 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     setShowNewTemplate(true);
   };
 
-  const saveTemplate = () => {
+  const saveTemplate = async () => {
     if (!newTemplate.name || !newTemplate.subject || !newTemplate.content)
       return;
 
     let updatedTemplates;
     if (editingTemplate) {
-      // Update existing template
       updatedTemplates = templates.map((t) =>
         t.id === editingTemplate.id ? { ...editingTemplate, ...newTemplate } : t
       );
       setSuccessMessage("Template updated successfully!");
     } else {
-      // Create new template
       const template: Template = {
         id: crypto.randomUUID(),
         ...newTemplate,
@@ -86,7 +115,16 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     }
 
     setTemplates(updatedTemplates);
-    localStorage.setItem("email-templates", JSON.stringify(updatedTemplates));
+
+    if (userId) {
+      const userDocRef = doc(db, "users", userId);
+      await setDoc(
+        userDocRef,
+        { templates: updatedTemplates },
+        { merge: true }
+      );
+    }
+
     setShowNewTemplate(false);
     setEditingTemplate(null);
     setNewTemplate({ name: "", subject: "", content: "" });
@@ -103,6 +141,12 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
 
   return (
     <div className="space-y-6">
+      {loading && (
+        <div className="flex items-center justify-center h-full">
+          <Loader />
+          <p>Loading...</p>
+        </div>
+      )}
       {showSuccess && (
         <div
           className="fixed top-4 right-4 z-50 flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg"

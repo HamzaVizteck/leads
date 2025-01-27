@@ -9,6 +9,10 @@ import { useAuth } from "../context/AuthContext";
 import { useLeads } from "./LeadsProvider";
 import { Timestamp } from "firebase/firestore";
 
+interface CSVRow {
+  [key: string]: string | number | boolean | null;
+}
+
 type Props = {
   onImport: (leads: Lead[]) => void;
 };
@@ -19,7 +23,7 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const { currentUser } = useAuth();
-  const { updateLeads } = useLeads();
+  const { updateLeads, setFilters, setSavedFilters } = useLeads();
 
   if (!currentUser) {
     return <div>Please log in to upload a CSV.</div>;
@@ -38,10 +42,10 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
       // Upload to Cloudinary
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("upload_preset", "leads_csv"); // Ensure you have a preset configured in Cloudinary
+      formData.append("upload_preset", "leads_csv");
 
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/dbnvspmk7/raw/upload`, // Replace with your Cloudinary cloud name
+        `https://api.cloudinary.com/v1_1/dbnvspmk7/raw/upload`,
         {
           method: "POST",
           body: formData,
@@ -53,43 +57,56 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
       }
 
       const data = await response.json();
-      const csvUrl = data.secure_url; // Get the URL of the uploaded CSV
+      const csvUrl = data.secure_url;
 
-      // Store the CSV URL in the user's document
+      // Store the CSV URL in the user's document and reset filters
       const userDocRef = doc(db, "users", currentUser.uid);
       await setDoc(
         userDocRef,
         {
           csvFile: {
-            url: csvUrl, // Store the Cloudinary URL
+            url: csvUrl,
             filename: file.name,
             uploadedAt: new Date().toISOString(),
           },
+          filters: [], // Reset active filters
+          savedFilters: [], // Reset saved filters
         },
         { merge: true }
-      ); // Use merge to avoid overwriting other user data
+      );
 
-      // Optionally, parse the CSV to get leads and call onImport
-      Papa.parse<any>(file, {
+      // Reset filters in the application state
+      setFilters([]);
+      setSavedFilters([]); // Reset saved filters in state
+
+      Papa.parse<CSVRow>(file, {
         header: true,
         dynamicTyping: true,
         complete: (results) => {
           const leads: Lead[] = results.data
             .filter((row) => Object.values(row).some((val) => val))
             .map((row, index) => {
-              const processedRow: any = { id: Date.now() + index };
+              const processedRow: Partial<Lead> = { id: Date.now() + index };
 
               Object.entries(row).forEach(([key, value]) => {
-                const cleanKey = key.trim().replace(/\s+/g, "_").toLowerCase();
-
                 if (value != null) {
+                  const cleanKey = key
+                    .trim()
+                    .replace(/\s+/g, "_")
+                    .toLowerCase();
                   const fieldType = detectFieldType(value);
+
                   switch (fieldType) {
                     case "date":
-                      processedRow[cleanKey] = new Timestamp(
-                        new Date(value).getTime() / 1000,
-                        0
-                      );
+                      if (
+                        typeof value === "string" ||
+                        typeof value === "number"
+                      ) {
+                        processedRow[cleanKey] = new Timestamp(
+                          new Date(value).getTime() / 1000,
+                          0
+                        );
+                      }
                       break;
                     case "number":
                       processedRow[cleanKey] = Number(value);
@@ -100,13 +117,13 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
                 }
               });
 
-              return processedRow;
+              return processedRow as Lead;
             });
 
           updateLeads(leads);
           onImport(leads);
 
-          setSuccessMessage("CSV uploaded successfully!");
+          setSuccessMessage("CSV uploaded and filters cleared!");
           setShowSuccess(true);
           setTimeout(() => setShowSuccess(false), 5000);
 

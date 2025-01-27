@@ -163,11 +163,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); // Prevent event bubbling
-    const allLeadIds = currentLeads.map((lead) => lead.id.toString());
+    e.stopPropagation();
     if (e.target.checked) {
-      onSelectLeads(allLeadIds);
+      // Select all leads on the current page
+      const currentPageLeadIds = currentLeads.map((lead) => lead.id.toString());
+      onSelectLeads(currentPageLeadIds);
     } else {
+      // Deselect all leads
       onSelectLeads([]);
     }
   };
@@ -176,11 +178,15 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     e: React.ChangeEvent<HTMLInputElement>,
     leadId: string
   ) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.stopPropagation();
+    const id = leadId.toString();
+
     if (e.target.checked) {
-      onSelectLeads([...selectedLeads, leadId]);
+      // Add the lead to selected leads
+      onSelectLeads([...selectedLeads, id]);
     } else {
-      onSelectLeads(selectedLeads.filter((id) => id !== leadId));
+      // Remove the lead from selected leads
+      onSelectLeads(selectedLeads.filter((selectedId) => selectedId !== id));
     }
   };
 
@@ -331,7 +337,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
 
   // Render loader or table based on loading state
   if (loading) {
-    return <Loader />;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader />
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -339,7 +350,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
       {leads.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 text-gray-500">
           <TableIcon className="w-12 h-12 mb-2" />
-          <p>No leads found for the current user.</p>
+          <p>No leads found for the criteria.</p>
         </div>
       ) : (
         <>
@@ -385,7 +396,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       type="checkbox"
                       checked={
                         currentLeads.length > 0 &&
-                        selectedLeads.length === currentLeads.length
+                        currentLeads.every((lead) =>
+                          selectedLeads.includes(lead.id.toString())
+                        )
                       }
                       onChange={handleSelectAll}
                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
