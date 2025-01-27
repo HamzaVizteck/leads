@@ -1,15 +1,12 @@
 import React, { useState } from "react";
 import {
   List,
-  // PieChart,
   Filter,
   ChevronDown,
   ChevronUp,
   Trash2,
   Mail,
   LogOut,
-  // Grid,
-  // PieChart,
 } from "lucide-react";
 import { Lead, SavedFilter } from "../types";
 import { signOut } from "firebase/auth";
@@ -36,13 +33,12 @@ export const Sidebar: React.FC<Props> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFilterId, setSelectedFilterId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null); // Success message state
 
   const navigate = useNavigate();
 
   const views = [
     { id: "all", label: "All Leads", icon: List },
-    // { id: "grid", label: "Grid View", icon: Grid },
-    // { id: "analytics", label: "Analytics", icon: PieChart },
     { id: "email", label: "Email Templates", icon: Mail },
   ];
 
@@ -60,9 +56,11 @@ export const Sidebar: React.FC<Props> = ({
   const handleConfirmDelete = () => {
     if (selectedFilterId) {
       onDeleteFilter(selectedFilterId); // Call the delete function
+      setSuccessMessage("Filter deleted successfully!"); // Set the success message
     }
     setIsModalOpen(false); // Close the modal
     setSelectedFilterId(null); // Reset the selected filter ID
+    setTimeout(() => setSuccessMessage(null), 3000); // Hide success message after 3 seconds
   };
 
   const handleCancelDelete = () => {
@@ -83,7 +81,6 @@ export const Sidebar: React.FC<Props> = ({
         <h2 className="text-xl font-semibold mb-2 text-green-100">
           CRM System
         </h2>
-        <p className="text-sm text-green-100">Welcome back, Admin!</p>
       </div>
 
       <div className="flex-1">
@@ -162,6 +159,13 @@ export const Sidebar: React.FC<Props> = ({
               </div>
             )}
           </div>
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mt-4 p-3 bg-green-600 text-white rounded-lg">
+              {successMessage}
+            </div>
+          )}
         </div>
       </div>
 

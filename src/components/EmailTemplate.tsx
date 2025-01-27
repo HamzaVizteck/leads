@@ -190,7 +190,7 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
               onChange={(e) =>
                 setNewTemplate({ ...newTemplate, name: e.target.value })
               }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+              className="mt-1 block w-full rounded-md border-gray-400 shadow-md focus:border-green-500 focus:ring-green-500"
             />
           </div>
           <div>

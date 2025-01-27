@@ -20,6 +20,7 @@ export const LeadsManagement: React.FC = () => {
     searchQuery,
     setSearchQuery,
     setFilters,
+    leads,
   } = useLeads();
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
@@ -41,11 +42,15 @@ export const LeadsManagement: React.FC = () => {
     setCurrentView(view); // Update the current view
   };
 
+  const handleSelectLeads = (ids: string[]) => {
+    setSelectedLeads(ids); // Update selected leads state
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       {/* Sidebar */}
       <Sidebar
-        leads={filteredLeads}
+        leads={leads}
         currentView={currentView}
         onViewChange={setCurrentView}
         savedFilters={savedFilters}
@@ -61,15 +66,7 @@ export const LeadsManagement: React.FC = () => {
             <div className="flex items-center">
               <Users className="w-8 h-8 text-green-600 mr-3" />
               <h1 className="text-2xl font-bold text-gray-900">
-                {currentView === "email"
-                  ? "Email Templates"
-                  : currentView === "grid"
-                  ? "Grid View"
-                  : currentView === "calendar"
-                  ? "Calendar"
-                  : currentView === "analytics"
-                  ? "Analytics"
-                  : "Leads Management"}
+                Leads Management
               </h1>
             </div>
 
@@ -142,7 +139,7 @@ export const LeadsManagement: React.FC = () => {
               <LeadTable
                 leads={filteredLeads}
                 selectedLeads={selectedLeads}
-                onSelectLeads={setSelectedLeads}
+                onSelectLeads={handleSelectLeads}
                 onViewChange={handleViewChange}
                 onSuccessMessage={showSuccessMessage} // Pass success message handler
               />

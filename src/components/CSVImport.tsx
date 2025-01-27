@@ -3,15 +3,11 @@ import { FileSpreadsheet, Loader, X } from "lucide-react";
 import { Lead } from "../types";
 import Papa from "papaparse";
 import { db } from "../config/firebaseConfig";
-import {
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-} from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { detectFieldType } from "../utils/fieldUtils";
+import { useAuth } from "../context/AuthContext";
+import { useLeads } from "./LeadsProvider";
+import { Timestamp } from "firebase/firestore";
 
 type Props = {
   onImport: (leads: Lead[]) => void;
@@ -22,22 +18,12 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const { currentUser } = useAuth();
+  const { updateLeads } = useLeads();
 
-  const checkIfFileExists = async (filename: string) => {
-    const q = query(
-      collection(db, "csv_files"),
-      where("filename", "==", filename)
-    );
-    const querySnapshot = await getDocs(q);
-    return { exists: !querySnapshot.empty, docs: querySnapshot.docs };
-  };
-
-  const deleteAllPreviousCSVs = async () => {
-    const q = query(collection(db, "csv_files"));
-    const querySnapshot = await getDocs(q);
-    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-    await Promise.all(deletePromises);
-  };
+  if (!currentUser) {
+    return <div>Please log in to upload a CSV.</div>;
+  }
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -49,104 +35,83 @@ export const CSVImport: React.FC<Props> = ({ onImport }) => {
     setShowSuccess(false);
 
     try {
-      const { exists } = await checkIfFileExists(file.name);
-      if (exists) {
-        const confirmReplace = window.confirm(
-          "This CSV was previously uploaded. Do you want to replace the existing data with this file?"
-        );
-        if (!confirmReplace) {
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-          setIsLoading(false);
-          return;
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "leads_csv"); // Ensure you have a preset configured in Cloudinary
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/dbnvspmk7/raw/upload`, // Replace with your Cloudinary cloud name
+        {
+          method: "POST",
+          body: formData,
         }
+      );
+
+      if (!response.ok) {
+        throw new Error("Upload to Cloudinary failed");
       }
 
+      const data = await response.json();
+      const csvUrl = data.secure_url; // Get the URL of the uploaded CSV
+
+      // Store the CSV URL in the user's document
+      const userDocRef = doc(db, "users", currentUser.uid);
+      await setDoc(
+        userDocRef,
+        {
+          csvFile: {
+            url: csvUrl, // Store the Cloudinary URL
+            filename: file.name,
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+        { merge: true }
+      ); // Use merge to avoid overwriting other user data
+
+      // Optionally, parse the CSV to get leads and call onImport
       Papa.parse<any>(file, {
         header: true,
         dynamicTyping: true,
-        complete: async (results) => {
-          try {
-            const leads: Lead[] = results.data
-              .filter((row) => Object.values(row).some((val) => val))
-              .map((row, index) => {
-                const processedRow: any = { id: Date.now() + index };
+        complete: (results) => {
+          const leads: Lead[] = results.data
+            .filter((row) => Object.values(row).some((val) => val))
+            .map((row, index) => {
+              const processedRow: any = { id: Date.now() + index };
 
-                Object.entries(row).forEach(([key, value]) => {
-                  const cleanKey = key
-                    .trim()
-                    .replace(/\s+/g, "_")
-                    .toLowerCase();
+              Object.entries(row).forEach(([key, value]) => {
+                const cleanKey = key.trim().replace(/\s+/g, "_").toLowerCase();
 
-                  if (value != null) {
-                    const fieldType = detectFieldType(value);
-                    switch (fieldType) {
-                      case "date":
-                        processedRow[cleanKey] = new Date(value);
-                        break;
-                      case "number":
-                        processedRow[cleanKey] = Number(value);
-                        break;
-                      case "boolean":
-                        processedRow[cleanKey] = value === "true";
-                        break;
-                      default:
-                        processedRow[cleanKey] = value;
-                    }
+                if (value != null) {
+                  const fieldType = detectFieldType(value);
+                  switch (fieldType) {
+                    case "date":
+                      processedRow[cleanKey] = new Timestamp(
+                        new Date(value).getTime() / 1000,
+                        0
+                      );
+                      break;
+                    case "number":
+                      processedRow[cleanKey] = Number(value);
+                      break;
+                    default:
+                      processedRow[cleanKey] = value;
                   }
-                });
-
-                return processedRow;
+                }
               });
 
-            // Upload to Cloudinary
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("upload_preset", "leads_csv");
+              return processedRow;
+            });
 
-            const response = await fetch(
-              `https://api.cloudinary.com/v1_1/dbnvspmk7/raw/upload`,
-              {
-                method: "POST",
-                body: formData,
-              }
-            );
+          updateLeads(leads);
+          onImport(leads);
 
-            if (!response.ok) {
-              throw new Error("Upload to Cloudinary failed");
-            }
+          setSuccessMessage("CSV uploaded successfully!");
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 5000);
 
-            const data = await response.json();
-            const csvUrl = data.secure_url;
-
-            await deleteAllPreviousCSVs();
-
-            try {
-              await addDoc(collection(db, "csv_files"), {
-                url: csvUrl,
-                filename: file.name,
-                uploadedAt: new Date().toISOString(),
-              });
-            } catch (firestoreError) {
-              console.error("Firestore error:", firestoreError);
-            }
-
-            onImport(leads);
-            setSuccessMessage(
-              exists
-                ? "CSV data replaced successfully!"
-                : "CSV imported successfully!"
-            );
-            setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 5000);
-
-            if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
-          } catch (error) {
-            console.error("Error processing CSV data:", error);
-            alert("Error processing CSV data. Please check the format.");
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
           }
         },
         error: (error: Papa.ParseError) => {

@@ -13,12 +13,11 @@ import {
   FilterField,
   NumberCondition,
 } from "../types";
-import { leads as initialLeads } from "../data/leads";
+import { leads as initialLeads } from "../data/leads.ts";
 import { db } from "../config/firebaseConfig";
-import { collection, query, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
 
-const SAVED_FILTERS_KEY = "crm-saved-filters";
-const ACTIVE_FILTERS_KEY = "crm-active-filters";
 const LEADS_STORAGE_KEY = "crm-leads-data";
 
 interface LeadsContextType {
@@ -57,9 +56,11 @@ interface LeadsContextType {
   setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
   updateLead: (updatedLead: Lead) => void;
   setFilters: (filters: Filter[]) => void;
+  updateLeads: (newLeads: Lead[]) => void;
+  userName: string;
 }
 
-const LeadsContext = createContext<LeadsContextType | undefined>(undefined);
+const LeadsContext = createContext<LeadsContextType | null>(null);
 
 export const useLeads = () => {
   const context = useContext(LeadsContext);
@@ -69,30 +70,19 @@ export const useLeads = () => {
   return context;
 };
 
-export const LeadsProvider = ({ children }: { children: ReactNode }) => {
+export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const { currentUser } = useAuth();
   const [leads, setLeads] = useState<Lead[]>(() => {
     const savedLeads = localStorage.getItem(LEADS_STORAGE_KEY);
     return savedLeads ? JSON.parse(savedLeads) : initialLeads;
   });
-  const [filters, setFilters] = useState<Filter[]>(() => {
-    const savedFilters = localStorage.getItem(SAVED_FILTERS_KEY);
-    if (savedFilters) {
-      const parsed = JSON.parse(savedFilters);
-      // Get all filters from saved filters
-      const allFilters = parsed.flatMap((sf: SavedFilter) => sf.filters);
-      return allFilters;
-    }
-    return [];
-  });
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>(() => {
-    const saved = localStorage.getItem(SAVED_FILTERS_KEY);
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [activeFilterIds, setActiveFilterIds] = useState<string[]>(() => {
-    const active = localStorage.getItem(ACTIVE_FILTERS_KEY);
-    return active ? JSON.parse(active) : [];
-  });
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [activeFilterIds, setActiveFilterIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [userName, setUserName] = useState<string>("");
 
   const [customFields, setCustomFields] = useState<
     Array<{ key: keyof Lead; label: string; type: "string" | "number" | "all" }>
@@ -136,40 +126,43 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     { value: "lessEqual", label: "Less than or equal to (≤)", type: "number" },
   ];
 
+  // Fetch saved filters from Firebase when user logs in
   useEffect(() => {
-    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(savedFilters));
-  }, [savedFilters]);
+    const fetchSavedFilters = async () => {
+      if (!currentUser) return;
 
-  useEffect(() => {
-    localStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeFilterIds));
-  }, [activeFilterIds]);
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
 
-  useEffect(() => {
-    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
-  }, [leads]);
-
-  // Check if there are any CSV files in Firebase
-  useEffect(() => {
-    const checkCSVFiles = async () => {
-      const q = query(collection(db, "csv_files"));
-      const querySnapshot = await getDocs(q);
-
-      // If no CSV files exist, reset to default data
-      if (querySnapshot.empty) {
-        setLeads(initialLeads);
-        localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(initialLeads));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.filters) {
+          setSavedFilters(userData.filters);
+          // Extract all filters from saved filters
+          const allFilters = userData.filters.flatMap(
+            (sf: SavedFilter) => sf.filters
+          );
+          setFilters(allFilters);
+        }
       }
     };
 
-    checkCSVFiles();
-  }, []);
+    fetchSavedFilters();
+  }, [currentUser]);
 
-  // Save leads to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
-  }, [leads]);
+  // Save filters to Firebase
+  const saveFiltersToFirebase = async (updatedSavedFilters: SavedFilter[]) => {
+    if (!currentUser) return;
 
-  const addFilter = (field: FilterField & { filterName: string }) => {
+    const userDocRef = doc(db, "users", currentUser.uid);
+    await updateDoc(userDocRef, {
+      filters: updatedSavedFilters,
+    });
+  };
+
+  const addFilter = async (field: FilterField & { filterName: string }) => {
+    if (!currentUser) return;
+
     const newFilter: Filter = {
       id: crypto.randomUUID(),
       name: field.label,
@@ -179,29 +172,43 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
         field.value ||
         (field.type === "number" ? [] : field.type === "dropdown" ? [] : ""),
     };
-    setFilters((prev) => [...prev, newFilter]);
 
     // Ensure that the value for number type is always an array
     if (field.type === "number" && !Array.isArray(newFilter.value)) {
       newFilter.value = [];
     }
 
-    // Save as a new saved filter
     const newSavedFilter: SavedFilter = {
       id: crypto.randomUUID(),
       name: field.filterName,
       filters: [newFilter],
     };
-    setSavedFilters((prev) => [...prev, newSavedFilter]);
+
+    // Update local state
+    setFilters((prev) => [...prev, newFilter]);
+    setSavedFilters((prev) => {
+      const updated = [...prev, newSavedFilter];
+      // Save to Firebase
+      saveFiltersToFirebase(updated);
+      return updated;
+    });
     setActiveFilterIds((prev) => [...prev, newSavedFilter.id]);
   };
 
-  const removeFilter = (id: string) => {
+  const removeFilter = async (id: string) => {
+    if (!currentUser) return;
+
+    // Remove from local filters
     setFilters(filters.filter((f) => f.id !== id));
-    // Remove this filter from saved filters if it exists
-    setSavedFilters((prev) =>
-      prev.filter((sf) => !sf.filters.some((f) => f.id === id))
-    );
+
+    // Remove from saved filters
+    setSavedFilters((prev) => {
+      const updated = prev.filter((sf) => !sf.filters.some((f) => f.id === id));
+      // Save to Firebase
+      saveFiltersToFirebase(updated);
+      return updated;
+    });
+
     setActiveFilterIds((prev) =>
       prev.filter(
         (activeId) =>
@@ -212,28 +219,44 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const updateFilter = (updatedFilter: Filter) => {
+  const updateFilter = async (updatedFilter: Filter) => {
+    if (!currentUser) return;
+
+    // Update local filters
     setFilters((prev) =>
       prev.map((f) => (f.id === updatedFilter.id ? updatedFilter : f))
     );
-    // Update the filter in saved filters if it exists
-    setSavedFilters((prev) =>
-      prev.map((sf) => ({
+
+    // Update saved filters
+    setSavedFilters((prev) => {
+      const updated = prev.map((sf) => ({
         ...sf,
         filters: sf.filters.map((f) =>
           f.id === updatedFilter.id ? updatedFilter : f
         ),
-      }))
-    );
+      }));
+      // Save to Firebase
+      saveFiltersToFirebase(updated);
+      return updated;
+    });
   };
 
-  const saveFilter = (name: string) => {
+  const saveFilter = async (name: string) => {
+    if (!currentUser) return;
+
     const newSavedFilter: SavedFilter = {
       id: crypto.randomUUID(),
       name,
       filters: [...filters],
     };
-    setSavedFilters((prev) => [...prev, newSavedFilter]);
+
+    // Update local state
+    setSavedFilters((prev) => {
+      const updated = [...prev, newSavedFilter];
+      // Save to Firebase
+      saveFiltersToFirebase(updated);
+      return updated;
+    });
     setActiveFilterIds((prev) => [...prev, newSavedFilter.id]);
   };
 
@@ -246,7 +269,9 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const deleteSavedFilter = (id: string) => {
+  const onDeleteFilter = async (id: string) => {
+    if (!currentUser) return;
+
     const filterToDelete = savedFilters.find((f) => f.id === id);
     if (filterToDelete) {
       setFilters(
@@ -255,7 +280,14 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
         )
       );
     }
-    setSavedFilters(savedFilters.filter((f) => f.id !== id));
+
+    // Update local state
+    setSavedFilters((prev) => {
+      const updated = prev.filter((f) => f.id !== id);
+      // Save to Firebase
+      saveFiltersToFirebase(updated);
+      return updated;
+    });
     setActiveFilterIds((prev) => prev.filter((activeId) => activeId !== id));
   };
 
@@ -294,15 +326,11 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
 
         if (filter.type === "number") {
           const conditions = filter.value as NumberCondition[];
-          console.log("Conditions:", conditions); // Debugging output
-          console.log("Is Array:", Array.isArray(conditions)); // Check if it's an array
 
-          if (!Array.isArray(conditions)) {
-            console.error("Expected conditions to be an array:", conditions);
-            return true; // Skip filtering if conditions is not an array
-          }
+          // Ensure conditions is an array
+          const validConditions = Array.isArray(conditions) ? conditions : [];
 
-          return conditions
+          return validConditions
             .filter((condition) => condition.isActive) // Only consider active conditions
             .every((condition) => {
               const numValue = Number(value);
@@ -359,6 +387,33 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const updateLeads = (newLeads: Lead[]) => {
+    setLeads(newLeads);
+  };
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser) return;
+
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log("Fetched User Data:", userData); // Log the fetched data
+        setUserName(userData.name || "User"); // Set user name or default to "User"
+      } else {
+        console.log("User document does not exist.");
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  useEffect(() => {
+    console.log("User Name State Updated:", userName);
+  }, [userName]);
+
   const value = {
     leads,
     filters,
@@ -371,7 +426,7 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     updateFilter,
     saveFilter,
     onApplyFilter: toggleSavedFilter,
-    onDeleteFilter: deleteSavedFilter,
+    onDeleteFilter,
     handleImportCSV,
     filteredLeads,
     saveAndActivateFilter,
@@ -383,6 +438,8 @@ export const LeadsProvider = ({ children }: { children: ReactNode }) => {
     setLeads,
     updateLead,
     setFilters,
+    updateLeads,
+    userName,
   };
 
   return (

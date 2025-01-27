@@ -1,31 +1,138 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Lead } from "../types";
-import { TableIcon, Edit2, Download, Trash2, Mail } from "lucide-react";
+import {
+  TableIcon,
+  Edit2,
+  Download,
+  Trash2,
+  Mail,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
 import { Modal } from "./Modal";
 import { useLeads } from "./LeadsProvider";
 import { ConfirmationModal } from "./ConfirmationModal";
-
-interface Props {
+import {
+  collection,
+  getDocs,
+  Timestamp,
+  query,
+  doc,
+  getDoc,
+} from "firebase/firestore"; // Import Firestore functions and Timestamp
+import { useAuth } from "../context/AuthContext"; // Import your authentication context
+import { db } from "../config/firebaseConfig"; // Import your Firestore config
+import Papa from "papaparse"; // Import PapaParse for CSV parsing
+import Loader from "./Loader";
+interface LeadTableProps {
   leads: Lead[];
   selectedLeads: string[];
-  onSelectLeads: (selectedIds: string[]) => void;
+  onSelectLeads: (ids: string[]) => void;
   onViewChange: (view: string) => void; // Add this line to accept the onViewChange prop
 }
 
-export const LeadTable: React.FC<Props> = ({
+interface CSVRow {
+  [key: string]: string | number | null;
+}
+
+export const LeadTable: React.FC<LeadTableProps> = ({
   leads,
   selectedLeads,
   onSelectLeads,
   onViewChange,
 }) => {
-  const { updateLead, deleteLeads } = useLeads();
+  const { updateLead, deleteLeads, updateLeads, setLeads } = useLeads();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [hasEdits, setHasEdits] = useState(false);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const recordsPerPage = 10;
+  const [loading, setLoading] = useState(true);
+  const { currentUser } = useAuth(); // Get the current user from context
+
+  const fetchLeadsFromFirebase = useCallback(async () => {
+    const userLeads: Lead[] = [];
+    const tempLeads: Lead[] = [];
+
+    // Fetch user-specific leads from the user's document
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData.csvFile && userData.csvFile.url) {
+        // Fetch the CSV from the URL
+        const response = await fetch(userData.csvFile.url);
+        const csvText = await response.text();
+
+        // Parse the CSV data
+        Papa.parse(csvText, {
+          header: true,
+          dynamicTyping: true,
+          complete: (results) => {
+            const parsedLeads = (results.data as CSVRow[])
+              .filter((row) =>
+                Object.values(row).some((val) => val !== null && val !== "")
+              )
+              .map((row, index) => {
+                const processedRow: Partial<Lead> = {
+                  id: Date.now() + index,
+                };
+
+                Object.entries(row).forEach(([key, value]) => {
+                  if (value != null) {
+                    const cleanKey = key
+                      .trim()
+                      .replace(/\s+/g, "_")
+                      .toLowerCase();
+                    processedRow[cleanKey as keyof Lead] = value;
+                  }
+                });
+
+                return processedRow as Lead;
+              });
+            userLeads.push(...parsedLeads);
+          },
+        });
+      }
+    }
+
+    // Fetch tempLeads if no user-specific leads are found
+    if (userLeads.length === 0) {
+      const tempLeadsQuery = query(collection(db, "tempLeads"));
+      const tempLeadsSnapshot = await getDocs(tempLeadsQuery);
+      tempLeadsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const lead: Lead = {
+          ...data,
+          id: parseInt(doc.id),
+        };
+        tempLeads.push(lead);
+      });
+    }
+
+    return userLeads.length > 0 ? userLeads : tempLeads; // Return user leads or temp leads
+  }, [currentUser]);
+
+  useEffect(() => {
+    const loadLeads = async () => {
+      setLoading(true);
+      try {
+        const fetchedLeads = await fetchLeadsFromFirebase();
+        updateLeads(fetchedLeads); // Update state with fetched leads
+      } catch (error) {
+        console.error("Error fetching leads:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadLeads();
+  }, [fetchLeadsFromFirebase, updateLeads]);
+
+  useEffect(() => {
+    // Set loading to false when leads are updated
+    setLoading(false);
+  }, [leads]);
 
   // Dynamic table headers based on lead data
   const tableHeaders = useMemo(() => {
@@ -42,46 +149,87 @@ export const LeadTable: React.FC<Props> = ({
   }, [leads]);
 
   // Calculate pagination
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
   const indexOfLastLead = currentPage * recordsPerPage;
   const indexOfFirstLead = indexOfLastLead - recordsPerPage;
   const currentLeads = leads.slice(indexOfFirstLead, indexOfLastLead);
   const totalPages = Math.ceil(leads.length / recordsPerPage);
+
+  const handleSelectResultsPerPage = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    setRecordsPerPage(Number(e.target.value)); // Update records per page
+    setCurrentPage(1); // Reset to first page when results per page change
+  };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    const allLeadIds = currentLeads.map((lead) => lead.id.toString());
     if (e.target.checked) {
-      onSelectLeads(leads.map((lead) => lead.id.toString()));
+      onSelectLeads(allLeadIds);
     } else {
       onSelectLeads([]);
     }
   };
 
   const handleSelectLead = (
-    e: React.MouseEvent | React.ChangeEvent,
+    e: React.ChangeEvent<HTMLInputElement>,
     leadId: string
   ) => {
-    e.stopPropagation();
-    if (selectedLeads.includes(leadId)) {
-      onSelectLeads(selectedLeads.filter((id) => id !== leadId));
-    } else {
+    e.stopPropagation(); // Prevent event bubbling
+    if (e.target.checked) {
       onSelectLeads([...selectedLeads, leadId]);
+    } else {
+      onSelectLeads(selectedLeads.filter((id) => id !== leadId));
     }
   };
 
   const handleEditClick = (e: React.MouseEvent, lead: Lead) => {
     e.stopPropagation();
-    setEditingLead(lead);
+    // Ensure lastContact is a Date object when setting editingLead
+    const leadToEdit = {
+      ...lead,
+      lastContact:
+        lead.lastContact instanceof Timestamp
+          ? lead.lastContact.toDate()
+          : lead.lastContact,
+    };
+    setEditingLead(leadToEdit);
   };
 
   const handleUpdateLead = async () => {
     if (editingLead) {
-      setIsSaving(true); // Start saving
+      setIsSaving(true);
       try {
-        await updateLead(editingLead); // Assuming `updateLead` is an async function
-        setEditingLead(null); // Close the modal
-        showSuccessMessage("Changes saved successfully!"); // Show success message
+        // Create a new object with the updated values
+        const updatedLead = {
+          ...editingLead,
+          // Convert lastContact to Timestamp if it's a Date
+          lastContact:
+            editingLead.lastContact instanceof Date
+              ? Timestamp.fromDate(editingLead.lastContact)
+              : editingLead.lastContact,
+        };
+
+        // Update the lead
+        await updateLead(updatedLead);
+
+        // Update the local state
+        const updatedLeads = leads.map((lead) =>
+          lead.id === updatedLead.id ? updatedLead : lead
+        );
+
+        // Update both states
+        setLeads(updatedLeads);
+        updateLeads(updatedLeads);
+
+        setEditingLead(null);
+        showSuccessMessage("Changes saved successfully!");
+        setHasEdits(true); // Mark that we have edits
       } catch (error) {
-        console.error("Error saving changes:", error); // Handle error (optional)
+        console.error("Error saving changes:", error);
       } finally {
-        setIsSaving(false); // Stop saving
+        setIsSaving(false);
       }
     }
   };
@@ -136,9 +284,10 @@ export const LeadTable: React.FC<Props> = ({
     setHasEdits(false);
     onSelectLeads([]);
   };
+
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(null), 5000); // Clear the message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 5000); // Clear the message after 5 seconds
   };
 
   const handleDeleteClick = (e: React.MouseEvent, leadId: string) => {
@@ -165,16 +314,32 @@ export const LeadTable: React.FC<Props> = ({
       setCurrentPage(currentPage - 1);
     }
   };
+
   const handleSendEmail = () => {
     // Switch view to "email" (Email Templates view)
     onViewChange("email"); // This will change the view to "Email Templates"
   };
+
+  // Example of converting a Firestore timestamp to a readable date
+  const formatTimestamp = (timestamp: {
+    seconds: number;
+    nanoseconds: number;
+  }) => {
+    const date = new Date(timestamp.seconds * 1000); // Convert seconds to milliseconds
+    return date.toLocaleString(); // Format the date as needed
+  };
+
+  // Render loader or table based on loading state
+  if (loading) {
+    return <Loader />;
+  }
+
   return (
     <div className="overflow-x-auto bg-white rounded-lg shadow-md">
       {leads.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 text-gray-500">
           <TableIcon className="w-12 h-12 mb-2" />
-          <p>No leads found matching your criteria</p>
+          <p>No leads found for the current user.</p>
         </div>
       ) : (
         <>
@@ -219,11 +384,11 @@ export const LeadTable: React.FC<Props> = ({
                     <input
                       type="checkbox"
                       checked={
-                        selectedLeads.length === leads.length &&
-                        leads.length > 0
+                        currentLeads.length > 0 &&
+                        selectedLeads.length === currentLeads.length
                       }
                       onChange={handleSelectAll}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
                     />
                   </th>
                   {tableHeaders.map((header) => (
@@ -260,7 +425,7 @@ export const LeadTable: React.FC<Props> = ({
                         onChange={(e) =>
                           handleSelectLead(e, lead.id.toString())
                         }
-                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
                       />
                     </td>
                     {tableHeaders.map((header) => (
@@ -269,9 +434,12 @@ export const LeadTable: React.FC<Props> = ({
                         className="px-6 py-4 whitespace-nowrap text-sm min-w-0 truncate"
                       >
                         {header.key === "lastContact"
-                          ? new Date(
-                              lead[header.key] as Date
-                            ).toLocaleDateString()
+                          ? formatTimestamp(
+                              lead[header.key] as {
+                                seconds: number;
+                                nanoseconds: number;
+                              }
+                            )
                           : header.key === "value"
                           ? `$${(lead[header.key] as number).toLocaleString()}`
                           : String(lead[header.key as keyof Lead])}
@@ -304,61 +472,66 @@ export const LeadTable: React.FC<Props> = ({
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-center items-center m-4">
-            <span className="text-sm text-gray-700 p-4">
-              Showing {indexOfFirstLead + 1} to{" "}
-              {Math.min(indexOfLastLead, leads.length)} of {leads.length}{" "}
-              results
+          <div className="flex justify-center items-center border-2 w-full">
+            {/* Results per page selector */}
+            <div className="flex items-center">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-400 mr-2">
+                Show
+              </label>
+              <select
+                value={recordsPerPage}
+                onChange={handleSelectResultsPerPage}
+                className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:focus:ring-green-500 dark:focus:border-green-500"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-sm font-medium mr-3 text-gray-700 dark:text-gray-400 ml-2">
+                results
+              </span>
+            </div>
+
+            {/* Help text */}
+            <span className="text-sm text-gray-700 dark:text-gray-400">
+              Showing{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {indexOfFirstLead + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {Math.min(indexOfLastLead, leads.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {leads.length}
+              </span>{" "}
+              Entries
             </span>
-            <div className="flex items-center space-x-2">
+
+            {/* Pagination buttons */}
+            <div className="inline-flex mt-2 xs:mt-0">
               <button
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 rounded-md ${
-                  currentPage === 1
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700 text-white"
+                className={`flex items-center ml-3 mr-3 mb-2 justify-center px-3 h-8 text-sm font-medium text-white bg-gray-800 rounded-s hover:bg-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white ${
+                  currentPage === 1 ? "cursor-not-allowed bg-gray-300" : ""
                 }`}
               >
-                &lt;
+                <ArrowLeft size={16} />
               </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1)
-                .filter((page) => {
-                  const showFirstPages = page <= 9;
-                  const showLastPage = page === totalPages;
-                  const showAroundCurrent = Math.abs(currentPage - page) <= 2;
-                  return showFirstPages || showLastPage || showAroundCurrent;
-                })
-                .map((page, idx, arr) => {
-                  const isEllipsis = idx > 0 && arr[idx] > arr[idx - 1] + 1;
-                  return isEllipsis ? (
-                    <span key={`ellipsis-${idx}`} className="px-2">
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 rounded-md ${
-                        currentPage === page
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-200 hover:bg-gray-300"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
               <button
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded-md ${
+                className={`flex items-center ml-3 mr-3 mb-2 justify-center px-3 h-8 text-sm font-medium text-white bg-gray-800 border-0 border-s border-gray-700 rounded-e hover:bg-gray-900 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white ${
                   currentPage === totalPages
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700 text-white"
+                    ? "cursor-not-allowed bg-gray-300"
+                    : ""
                 }`}
               >
-                &gt;
+                <ArrowRight size={16} />
               </button>
             </div>
           </div>
@@ -372,33 +545,34 @@ export const LeadTable: React.FC<Props> = ({
       >
         {editingLead && (
           <div className="space-y-6">
-            {" "}
-            {/* Increased space between fields */}
             <div className="max-h-[600px] overflow-y-auto">
-              {" "}
-              {/* Scrollable container */}
               {tableHeaders.map((header) => (
-                <div key={header.key} className="mt-2">
-                  {" "}
-                  {/* Added margin-top to each field */}
-                  <label className="block text-sm font-medium text-gray-700">
+                <div key={header.key} className="mt-4">
+                  <label
+                    htmlFor={`edit-${header.key}`}
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     {header.label}
                   </label>
                   {header.key === "lastContact" ? (
                     <input
                       type="date"
+                      id={`edit-${header.key}`}
+                      name={`edit-${header.key}`}
                       value={
-                        new Date(editingLead[header.key] as Date)
-                          .toISOString()
-                          .split("T")[0]
+                        editingLead.lastContact
+                          ? new Date(editingLead.lastContact)
+                              .toISOString()
+                              .split("T")[0]
+                          : ""
                       }
                       onChange={(e) =>
                         setEditingLead({
                           ...editingLead,
-                          [header.key]: new Date(e.target.value),
+                          lastContact: new Date(e.target.value),
                         })
                       }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                     />
                   ) : (
                     <input
@@ -408,6 +582,8 @@ export const LeadTable: React.FC<Props> = ({
                           ? "number"
                           : "text"
                       }
+                      id={`edit-${header.key}`}
+                      name={`edit-${header.key}`}
                       value={editingLead[header.key as keyof Lead]}
                       onChange={(e) =>
                         setEditingLead({
@@ -419,7 +595,7 @@ export const LeadTable: React.FC<Props> = ({
                               : e.target.value,
                         })
                       }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                     />
                   )}
                 </div>
@@ -428,29 +604,21 @@ export const LeadTable: React.FC<Props> = ({
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setEditingLead(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateLead}
-                disabled={isSaving} // Disable button while saving
+                disabled={isSaving}
                 className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
                   isSaving
                     ? "bg-green-400 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700"
-                }`}
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
               >
                 {isSaving ? "Saving..." : "Save Changes"}
               </button>
-              {successMessage && (
-                <div
-                  className="fixed top-4 right-4 z-40 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"
-                  role="alert"
-                >
-                  {successMessage}
-                </div>
-              )}
             </div>
           </div>
         )}
