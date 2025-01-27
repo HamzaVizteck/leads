@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { Link } from "react-router-dom"; // Import Link for navigation
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -63,6 +64,17 @@ const Login = () => {
               className="border rounded w-full px-3 py-2"
             />
           </div>
+          <div className="text-center mt-4 mb-2">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <Link
+                to="/signup"
+                className="text-green-500 hover:underline font-medium"
+              >
+                Sign up here.
+              </Link>
+            </p>
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -73,6 +85,7 @@ const Login = () => {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+        {/* Don't have an account link */}
       </div>
     </div>
   );
