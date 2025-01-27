@@ -6,7 +6,7 @@ import {
   useEffect,
 } from "react";
 import { auth } from "../config/firebaseConfig"; // Import your Firebase auth
-import { updateProfile } from "firebase/auth";
+import { updateProfile, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebaseConfig"; // Import your Firestore
 
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   console.log("Current User:", currentUser);
 
-  const handleUserCreation = async (user) => {
+  const handleUserCreation = async (user: User) => {
     // Assuming you have the user's name from your registration form
     const userName = user.displayName; // Replace with actual user name
 
@@ -62,7 +62,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ currentUser, setCurrentUser }}>
-      {children}
+      <div>
+        <p>Welcome, {userName}!</p>
+        {children}
+      </div>
     </AuthContext.Provider>
   );
 };

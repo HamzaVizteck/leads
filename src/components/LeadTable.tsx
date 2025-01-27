@@ -24,11 +24,13 @@ import { useAuth } from "../context/AuthContext"; // Import your authentication 
 import { db } from "../config/firebaseConfig"; // Import your Firestore config
 import Papa from "papaparse"; // Import PapaParse for CSV parsing
 import Loader from "./Loader";
-interface LeadTableProps {
+
+export interface LeadTableProps {
   leads: Lead[];
   selectedLeads: string[];
   onSelectLeads: (ids: string[]) => void;
-  onViewChange: (view: string) => void; // Add this line to accept the onViewChange prop
+  onViewChange: (view: string) => void;
+  onSuccessMessage: (message: string) => void;
 }
 
 interface CSVRow {

@@ -52,11 +52,11 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   const handleSubmit = () => {
     if (selectedField) {
       onAddFilter({
-        key: selectedField as keyof Lead,
+        key: selectedField as string,
         label: fields.find((f) => f.key === selectedField)?.label || "",
         type: selectedType as "search" | "dropdown" | "number" | "date",
         filterName: `${
-          selectedField.charAt(0).toUpperCase() + selectedField.slice(1)
+          (selectedField as string).charAt(0).toUpperCase() + (selectedField as string).slice(1)
         } Filter`,
         value: selectedType === "number" ? numberConditions : undefined,
       });

@@ -5,6 +5,7 @@ import { FilterBuilder } from "./FilterBuilder";
 import { Sidebar } from "./Sidebar";
 import { Users, Search } from "lucide-react";
 import { EmailTemplate } from "./EmailTemplate";
+import { FilterField } from "../types";
 
 export const LeadsManagement: React.FC = () => {
   const {
@@ -76,7 +77,11 @@ export const LeadsManagement: React.FC = () => {
                   className={`text-sm px-4 py-2 rounded-md ${
                     searchQuery ||
                     filters.some(
-                      (filter) => filter.value && filter.value.length > 0
+                      (filter) =>
+                        filter.value &&
+                        (typeof filter.value === "string"
+                          ? filter.value.length > 0
+                          : false)
                     )
                       ? "bg-green-100 border border-green-400 text-green-700"
                       : "bg-gray-100 border border-gray-300 text-gray-700"
@@ -115,8 +120,14 @@ export const LeadsManagement: React.FC = () => {
               <FilterBuilder
                 filters={filters}
                 onAddFilter={(filter) => {
-                  addFilter(filter);
-                  showSuccessMessage("Filter added successfully!"); // Show success message
+                  const newFilter: FilterField & { filterName: string } = {
+                    key: filter.key as string,
+                    label: filter.label,
+                    type: filter.type,
+                    filterName: filter.filterName,
+                  };
+                  addFilter(newFilter);
+                  showSuccessMessage("Filter added successfully!");
                 }}
                 onRemoveFilter={removeFilter}
                 onFilterChange={updateFilter}

@@ -26,7 +26,7 @@ export interface LeadsContextType {
   savedFilters: SavedFilter[];
   setFilters: (filters: Filter[]) => void;
   setSavedFilters: (filters: SavedFilter[]) => void;
-  addFilter: (filter: Filter) => void;
+  addFilter: (filter: FilterField & { filterName: string }) => void;
   removeFilter: (id: string) => void;
   updateFilter: (filter: Filter) => void;
   onApplyFilter: (filter: SavedFilter) => void;
@@ -56,6 +56,7 @@ export interface LeadsContextType {
   }) => void;
   removeCustomField: (key: keyof Lead) => void;
   userName: string;
+  handleImportCSV: (importedLeads: Lead[]) => void;
 }
 
 const LeadsContext = createContext<LeadsContextType | null>(null);
@@ -158,27 +159,27 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const addFilter = async (field: FilterField & { filterName: string }) => {
+  const addFilter = (filter: FilterField & { filterName: string }) => {
     if (!currentUser) return;
 
     const newFilter: Filter = {
       id: crypto.randomUUID(),
-      name: field.label,
-      field: field.key,
-      type: field.type,
+      name: filter.label,
+      field: filter.key,
+      type: filter.type,
       value:
-        field.value ||
-        (field.type === "number" ? [] : field.type === "dropdown" ? [] : ""),
+        filter.value ||
+        (filter.type === "number" ? [] : filter.type === "dropdown" ? [] : ""),
     };
 
     // Ensure that the value for number type is always an array
-    if (field.type === "number" && !Array.isArray(newFilter.value)) {
+    if (filter.type === "number" && !Array.isArray(newFilter.value)) {
       newFilter.value = [];
     }
 
     const newSavedFilter: SavedFilter = {
       id: crypto.randomUUID(),
-      name: field.filterName,
+      name: filter.filterName,
       filters: [newFilter],
     };
 
@@ -237,25 +238,6 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
       saveFiltersToFirebase(updated);
       return updated;
     });
-  };
-
-  const saveFilter = async (name: string) => {
-    if (!currentUser) return;
-
-    const newSavedFilter: SavedFilter = {
-      id: crypto.randomUUID(),
-      name,
-      filters: [...filters],
-    };
-
-    // Update local state
-    setSavedFilters((prev) => {
-      const updated = [...prev, newSavedFilter];
-      // Save to Firebase
-      saveFiltersToFirebase(updated);
-      return updated;
-    });
-    setActiveFilterIds((prev) => [...prev, newSavedFilter.id]);
   };
 
   const toggleSavedFilter = (savedFilter: SavedFilter) => {
@@ -356,30 +338,13 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, [leads, filters, searchQuery]);
 
-  const saveAndActivateFilter = (name: string, currentFilters: Filter[]) => {
-    const filtersToSave = currentFilters.map((filter) => ({
-      ...filter,
-      id: crypto.randomUUID(),
-    }));
-
-    const newFilter: SavedFilter = {
-      id: crypto.randomUUID(),
-      name,
-      filters: filtersToSave,
-    };
-
-    setSavedFilters((prev) => [...prev, newFilter]);
-    setActiveFilterIds((prev) => [...prev, newFilter.id]);
-    setFilters([]); // Clear current filters since we're saving them
-  };
-
   const deleteLeads = (leadIds: string[]) => {
     setLeads((prevLeads) =>
       prevLeads.filter((lead) => !leadIds.includes(lead.id.toString()))
     );
   };
 
-  const updateLead = (updatedLead: Lead) => {
+  const updateLead = async (updatedLead: Lead): Promise<void> => {
     setLeads((prev) =>
       prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
     );
@@ -436,6 +401,7 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     addCustomField,
     removeCustomField,
     userName,
+    handleImportCSV,
   };
 
   return (
