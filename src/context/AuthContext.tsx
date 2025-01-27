@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const handleUserCreation = async (user: User) => {
     // Assuming you have the user's name from your registration form
-    const userName = user.displayName; // Replace with actual user name
+    setUserName(user.displayName || "User"); // Replace with actual user name
 
     // Update the user's profile
     await updateProfile(user, {
@@ -62,10 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ currentUser, setCurrentUser }}>
-      <div>
-        <p>Welcome, {userName}!</p>
-        {children}
-      </div>
+      {children}
     </AuthContext.Provider>
   );
 };
