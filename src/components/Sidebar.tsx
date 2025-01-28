@@ -78,8 +78,8 @@ export const Sidebar: React.FC<Props> = ({
   [&::-webkit-scrollbar-thumb]:bg-green-500"
     >
       <div className="p-6 border-b border-gray-700">
-        <h2 className="text-xl font-semibold mb-2 text-green-100">
-          CRM System
+        <h2 className="text-xl font-semibold mb-2 text-green-100 font-serif">
+          Leads Maestro
         </h2>
       </div>
 

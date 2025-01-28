@@ -69,7 +69,7 @@ export const LeadsManagement: React.FC = () => {
         <Header />
 
         {/* Fixed Leads Management Header */}
-        <div className="fixed top-16 left-64 right-0 bg-gray-100 z-30">
+        <div className="fixed top-16 left-64 right-0 bg-gray-100 z-20">
           <div className="px-6 py-4 border-b max-w-full sm:max-w-[768px] md:max-w-[1024px] lg:max-w-[1228px] mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center">
@@ -126,7 +126,7 @@ export const LeadsManagement: React.FC = () => {
 
         {/* Fixed Filter Builder */}
         {currentView !== "email" && (
-          <div className="fixed top-32 left-64 right-0 bg-gray-100 z-20">
+          <div className="fixed top-32 left-64 right-0 bg-gray-100 z-40 overflow-y-auto h-40">
             <div className="px-6 py-4 border-b max-w-full sm:max-w-[768px] md:max-w-[1024px] lg:max-w-[1228px] mx-auto">
               <FilterBuilder
                 filters={filters}
@@ -161,7 +161,7 @@ export const LeadsManagement: React.FC = () => {
                 <EmailTemplate leads={filteredLeads} />
               </div>
             ) : (
-              <div className="overflow-auto mt-32">
+              <div className="overflow-auto mt-44">
                 <LeadTable
                   leads={filteredLeads}
                   selectedLeads={selectedLeads}

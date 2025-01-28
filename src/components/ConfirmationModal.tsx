@@ -27,7 +27,7 @@ export const ConfirmationModal: React.FC<Props> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <div className="space-y-4">
+      <div className="space-y-4 z-50">
         <p className="text-sm text-gray-500">{message}</p>
         <div className="flex justify-end space-x-3">
           <button

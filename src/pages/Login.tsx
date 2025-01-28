@@ -40,14 +40,19 @@ const Login = () => {
     <div className="flex h-screen">
       {/* Left side background with image */}
       <div
-        className="w-1/2 flex items-center justify-center bg-cover p-2 bg-center"
+        className="w-1/2 flex items-center justify-center bg-cover p-2 bg-center relative"
         style={{
           backgroundImage: `url(${bgImage})`,
           backgroundSize: "90%",
           backgroundRepeat: "no-repeat",
         }} // Prevent the image from repeating
       >
-        {/* Optional: Add any background content here */}
+        <h1 className="absolute top-8 text-center text-green-900 text-3xl font-bold font-serif">
+          Leads Maestro
+        </h1>
+        <p className="absolute top-20 text-center text-green-700 text-sm font-bold font-serif">
+          Orchestrating Your Success, One Lead at a Time.
+        </p>
       </div>
       {/* Right side form */}
       <div className="w-1/2 flex items-center justify-center bg-gradient-to-br from-green-900 via-green-500 to-green-900">

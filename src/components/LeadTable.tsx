@@ -43,7 +43,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   onSelectLeads,
   onViewChange,
 }) => {
-  const { updateLead, deleteLeads, updateLeads, setLeads } = useLeads();
+  const { updateLead, deleteLeads, updateLeads } = useLeads();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [hasEdits, setHasEdits] = useState(false);
   const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
@@ -209,32 +209,21 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     if (editingLead) {
       setIsSaving(true);
       try {
-        // Create a new object with the updated values without lastContact
         const updatedLead = {
-          ...editingLead, // Keep all other fields
-          // lastContact is not included
+          ...editingLead,
         };
 
-        // Log the updated lead to the console
-        console.log("Updated Lead:", updatedLead);
+        await updateLead(updatedLead as Lead);
+        console.log("Updated lead:", updatedLead);
 
-        // Update the lead
-        await updateLead(updatedLead as Lead); // Ensure updatedLead is of type Lead
-
-        // Update the local state
-        const updatedLeads = leads.map((lead) =>
-          lead.id === updatedLead.id ? updatedLead : lead
-        );
-
-        // Update both states
-        setLeads(updatedLeads);
-        updateLeads(updatedLeads);
+        // Optionally re-fetch leads to ensure consistency
+        await fetchLeadsFromFirebase(); // Ensure this function is defined and accessible
 
         setEditingLead(null);
         showSuccessMessage("Changes saved successfully!");
-        setHasEdits(true); // Mark that we have edits
       } catch (error) {
         console.error("Error saving changes:", error);
+        setSuccessMessage("Error saving changes. Please try again.");
       } finally {
         setIsSaving(false);
       }

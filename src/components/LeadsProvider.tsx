@@ -69,6 +69,23 @@ export const useLeads = () => {
   return context;
 };
 
+const fetchLeadsFromFirebase = async (
+  currentUserId: string,
+  setSavedLeads: React.Dispatch<React.SetStateAction<Lead[]>>
+) => {
+  if (!currentUserId) return;
+
+  const userDocRef = doc(db, "users", currentUserId);
+  const userDoc = await getDoc(userDocRef);
+
+  if (userDoc.exists()) {
+    const userData = userDoc.data();
+    if (userData.savedLeads) {
+      setSavedLeads(userData.savedLeads);
+    }
+  }
+};
+
 export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -347,26 +364,43 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     updateLeadsInFirebase(updatedSavedLeads);
   };
 
-  const fetchLeadsFromFirebase = async () => {
+  const updateLead = async (updatedLead: Lead): Promise<void> => {
     if (!currentUser) return;
 
-    const userDocRef = doc(db, "users", currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      if (userData.savedLeads) {
-        setSavedLeads(userData.savedLeads);
-      }
-    }
-  };
+    try {
+      // Update in Firebase user document
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
 
-  const updateLead = async (updatedLead: Lead): Promise<void> => {
-    const leadDocRef = doc(db, "leads", updatedLead.id.toString());
-    await setDoc(leadDocRef, updatedLead);
-    setLeads((prev) =>
-      prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
-    );
-    await fetchLeadsFromFirebase(); // Re-fetch leads to ensure state is in sync
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentSavedLeads = userData.savedLeads || [];
+
+        // Update the lead in savedLeads array
+        const updatedSavedLeads = currentSavedLeads.map((lead: Lead) =>
+          lead.id === updatedLead.id ? updatedLead : lead
+        );
+
+        // Update Firebase
+        await updateDoc(userDocRef, {
+          savedLeads: updatedSavedLeads,
+        });
+
+        // Update local states
+        setSavedLeads(updatedSavedLeads);
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.id === updatedLead.id ? updatedLead : lead
+          )
+        );
+
+        // Optionally re-fetch leads to ensure consistency
+        await fetchLeadsFromFirebase(currentUser.uid, setSavedLeads);
+      }
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      throw error;
+    }
   };
 
   const updateLeads = (newLeads: Lead[]) => {
@@ -397,21 +431,12 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
   }, [userName]);
 
   useEffect(() => {
-    const fetchLeadsFromFirebase = async () => {
+    const loadLeads = async () => {
       if (!currentUser) return;
-
-      const userDocRef = doc(db, "users", currentUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.savedLeads) {
-          setSavedLeads(userData.savedLeads);
-        }
-      }
+      await fetchLeadsFromFirebase(currentUser.uid, setSavedLeads);
     };
 
-    fetchLeadsFromFirebase();
+    loadLeads();
   }, [currentUser]);
 
   const updateLeadsInFirebase = async (updatedLeads: Lead[]) => {
