@@ -13,12 +13,9 @@ import {
   FilterField,
   NumberCondition,
 } from "../types";
-import { leads as initialLeads } from "../data/leads.ts";
 import { db } from "../config/firebaseConfig";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
-
-const LEADS_STORAGE_KEY = "crm-leads-data";
 
 export interface LeadsContextType {
   leads: Lead[];
@@ -57,6 +54,9 @@ export interface LeadsContextType {
   removeCustomField: (key: keyof Lead) => void;
   userName: string;
   handleImportCSV: (importedLeads: Lead[]) => void;
+  savedLeads: Lead[];
+  setSavedLeads: (leads: Lead[]) => void;
+  addLead: (newLead: Lead) => void;
 }
 
 const LeadsContext = createContext<LeadsContextType | null>(null);
@@ -73,10 +73,8 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { currentUser } = useAuth();
-  const [leads, setLeads] = useState<Lead[]>(() => {
-    const savedLeads = localStorage.getItem(LEADS_STORAGE_KEY);
-    return savedLeads ? JSON.parse(savedLeads) : initialLeads;
-  });
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [savedLeads, setSavedLeads] = useState<Lead[]>([]);
   const [filters, setFilters] = useState<Filter[]>([]);
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [activeFilterIds, setActiveFilterIds] = useState<string[]>([]);
@@ -342,6 +340,11 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     setLeads((prevLeads) =>
       prevLeads.filter((lead) => !leadIds.includes(lead.id.toString()))
     );
+    const updatedSavedLeads = savedLeads.filter(
+      (lead) => !leadIds.includes(lead.id.toString())
+    );
+    setSavedLeads(updatedSavedLeads);
+    updateLeadsInFirebase(updatedSavedLeads);
   };
 
   const updateLead = async (updatedLead: Lead): Promise<void> => {
@@ -377,6 +380,42 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     console.log("User Name State Updated:", userName);
   }, [userName]);
 
+  useEffect(() => {
+    const fetchLeadsFromFirebase = async () => {
+      if (!currentUser) return;
+
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.savedLeads) {
+          setSavedLeads(userData.savedLeads);
+        }
+      }
+    };
+
+    fetchLeadsFromFirebase();
+  }, [currentUser]);
+
+  const updateLeadsInFirebase = async (updatedLeads: Lead[]) => {
+    if (!currentUser) return;
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    await setDoc(
+      userDocRef,
+      {
+        savedLeads: updatedLeads,
+      },
+      { merge: true }
+    );
+  };
+
+  const addLead = (newLead: Lead) => {
+    setLeads((prev) => [...prev, newLead]);
+    updateLeadsInFirebase([...savedLeads, newLead]);
+  };
+
   const value = {
     leads,
     filters,
@@ -402,6 +441,9 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     removeCustomField,
     userName,
     handleImportCSV,
+    savedLeads,
+    setSavedLeads,
+    addLead,
   };
 
   return (

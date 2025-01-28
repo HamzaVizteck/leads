@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLeads } from "./LeadsProvider";
 import { LeadTable } from "./LeadTable";
 import { FilterBuilder } from "./FilterBuilder";
@@ -44,8 +44,13 @@ export const LeadsManagement: React.FC = () => {
   };
 
   const handleSelectLeads = (ids: string[]) => {
-    setSelectedLeads(ids); // Update selected leads state
+    console.log("Selected leads updated:", ids);
+    setSelectedLeads(ids);
   };
+
+  useEffect(() => {
+    console.log("LeadsManagement rendered");
+  }, []); // Add an empty dependency array
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -93,11 +98,13 @@ export const LeadsManagement: React.FC = () => {
                 <div className="relative z-20">
                   <input
                     type="text"
+                    id="search"
                     placeholder="Search leads..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   />
+
                   <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
               </div>
@@ -116,7 +123,7 @@ export const LeadsManagement: React.FC = () => {
 
           {/* Filter Builder */}
           {currentView !== "email" && (
-            <div className="mb-8 w-full max-w-[1228px] ">
+            <div className="mb-8 w-full  max-w-[1228px] ">
               <FilterBuilder
                 filters={filters}
                 onAddFilter={(filter) => {

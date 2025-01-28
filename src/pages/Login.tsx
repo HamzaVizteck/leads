@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "../config/firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { Link } from "react-router-dom"; // Import Link for navigation
+import bgImage from "../assets/images/bg-login.jpg"; // Import the background image
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -36,16 +37,30 @@ const Login = () => {
   };
 
   return (
-    <div className="relative">
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-green-900 via-green-500 to-green-900">
+    <div className="flex h-screen">
+      {/* Left side background with image */}
+      <div
+        className="w-1/2 flex items-center justify-center bg-cover p-2 bg-center"
+        style={{
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: "90%",
+          backgroundRepeat: "no-repeat",
+        }} // Prevent the image from repeating
+      >
+        {/* Optional: Add any background content here */}
+      </div>
+      {/* Right side form */}
+      <div className="w-1/2 flex items-center justify-center bg-gradient-to-br from-green-900 via-green-500 to-green-900">
         <form
           onSubmit={handleLogin}
-          className="bg-green-100 p-6 rounded shadow-lg w-80"
+          className="bg-white shadow-lg rounded-lg p-10 w-1/2 "
         >
-          <h2 className="text-xl mb-4">Login</h2>
           {error && <p className="text-red-500">{error}</p>}
+          <p className="mb-4 text-center">Please login to your account</p>
+
+          {/* Username input */}
           <div className="mb-4">
-            <label className="block mb-2">Email</label>
+            <label className="block mb-2  items-center">Email</label>
             <input
               type="email"
               value={email}
@@ -54,8 +69,10 @@ const Login = () => {
               className="border rounded w-full px-3 py-2"
             />
           </div>
+
+          {/* Password input */}
           <div className="mb-4">
-            <label className="block mb-2">Password</label>
+            <label className="block mb-2  items-center">Password</label>
             <input
               type="password"
               value={password}
@@ -64,6 +81,7 @@ const Login = () => {
               className="border rounded w-full px-3 py-2"
             />
           </div>
+
           <div className="text-center mt-4 mb-2">
             <p className="text-sm text-gray-600">
               Don't have an account?{" "}
@@ -85,7 +103,6 @@ const Login = () => {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-        {/* Don't have an account link */}
       </div>
     </div>
   );

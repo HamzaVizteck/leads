@@ -63,6 +63,14 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     fetchTemplates();
   }, [userId]);
 
+  useEffect(() => {
+    if (showNewTemplate || !!templateToDelete || !!selectedTemplate) {
+      document.body.classList.add("modal-open");
+    } else {
+      document.body.classList.remove("modal-open");
+    }
+  }, [showNewTemplate, templateToDelete, selectedTemplate]);
+
   const handleDeleteClick = (template: Template) => {
     setTemplateToDelete(template);
   };
@@ -76,7 +84,18 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
     setTemplates(updatedTemplates);
 
     if (userId) {
-      await setDoc(doc(db, "users", userId), { templates: updatedTemplates });
+      const userDocRef = doc(db, "users", userId);
+      const userDocSnap = await getDoc(userDocRef);
+      const existingData = userDocSnap.exists() ? userDocSnap.data() : {};
+
+      await setDoc(
+        userDocRef,
+        {
+          templates: updatedTemplates,
+          csvFile: existingData.csvFile || null, // Preserve existing CSV data
+        },
+        { merge: true }
+      );
     }
 
     setSuccessMessage("Template deleted successfully!");
@@ -118,9 +137,15 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
 
     if (userId) {
       const userDocRef = doc(db, "users", userId);
+      const userDocSnap = await getDoc(userDocRef);
+      const existingData = userDocSnap.exists() ? userDocSnap.data() : {};
+
       await setDoc(
         userDocRef,
-        { templates: updatedTemplates },
+        {
+          templates: updatedTemplates,
+          csvFile: existingData.csvFile || null, // Preserve existing CSV data
+        },
         { merge: true }
       );
     }
@@ -175,41 +200,49 @@ export const EmailTemplate: React.FC<Props> = ({ leads }) => {
         </button>
       </div>
       <div className="grid grid-cols-1 gap-4">
-        {templates.map((template) => (
-          <div
-            key={template.id}
-            className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:border-green-300 transition-colors"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium text-gray-900">{template.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">{template.subject}</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => startEditingTemplate(template)}
-                  className="p-1 text-gray-500 hover:text-green-600 transition-colors"
-                  title="Edit template"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(template)}
-                  className="p-1 text-gray-500 hover:text-red-600 transition-colors"
-                  title="Delete template"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setSelectedTemplate(template)}
-                  className="px-3 py-1 text-sm text-green-600 hover:text-green-800"
-                >
-                  Use Template
-                </button>
+        {templates.length === 0 ? (
+          <p className="text-gray-500 text-center mt-10">
+            No templates created. Click create template to add a new template.
+          </p>
+        ) : (
+          templates.map((template) => (
+            <div
+              key={template.id}
+              className="bg-white p-4 rounded-lg shadow border border-gray-200 hover:border-green-300 transition-colors"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-gray-900">{template.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {template.subject}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => startEditingTemplate(template)}
+                    className="p-1 text-gray-500 hover:text-green-600 transition-colors"
+                    title="Edit template"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(template)}
+                    className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                    title="Delete template"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedTemplate(template)}
+                    className="px-3 py-1 text-sm text-green-600 hover:text-green-800"
+                  >
+                    Use Template
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
       {/* New/Edit Template Modal */}
       <Modal

@@ -3,7 +3,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../config/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
-
+import bgImage from "../assets/images/bg-login.jpg";
 const SignUp = () => {
   const [name, setName] = useState(""); // Added name state
   const [email, setEmail] = useState("");
@@ -61,11 +61,23 @@ const SignUp = () => {
   };
 
   return (
-    <div className="relative">
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-green-900 via-green-500 to-green-900">
+    <div className="flex h-screen">
+      {/* Left side background */}
+      <div
+        className="w-1/2 flex items-center justify-center bg-cover p-2 bg-center"
+        style={{
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: "90%",
+          backgroundRepeat: "no-repeat",
+        }} // Prevent the image from repeating
+      >
+        {/* Optional: Add any background content here */}
+      </div>
+      {/* Right side form */}
+      <div className="w-1/2 flex items-center justify-center bg-gradient-to-br from-green-900 via-green-500 to-green-900">
         <form
           onSubmit={handleSignUp}
-          className="bg-green-100 p-6 rounded shadow-lg w-80"
+          className="bg-white shadow-lg rounded-lg p-10 w-1/2 "
         >
           <h2 className="text-xl mb-4">Sign Up</h2>
           {error && <p className="text-red-500">{error}</p>}
