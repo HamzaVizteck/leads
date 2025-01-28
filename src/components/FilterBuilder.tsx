@@ -17,10 +17,10 @@ type Props = {
   }) => void;
   onRemoveFilter: (id: string) => void;
   onFilterChange: (filter: Filter) => void;
-  selectedLeads: string[]; // Comes from LeadTable
+  selectedLeads: string[];
   onImportCSV: (importedLeads: Lead[]) => void;
   setFilters: (filters: Filter[]) => void;
-  resetSelectedLeads: () => void; // Add this prop to reset selected leads
+  resetSelectedLeads: () => void;
   leads: Lead[];
 };
 
@@ -29,7 +29,7 @@ export const FilterBuilder: React.FC<Props> = ({
   onAddFilter,
   onRemoveFilter,
   onFilterChange,
-  selectedLeads, // Use this directly
+  selectedLeads,
   onImportCSV,
   setFilters,
   resetSelectedLeads,
@@ -46,19 +46,19 @@ export const FilterBuilder: React.FC<Props> = ({
 
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleDelete = () => {
-    setShowDeleteConfirmation(true); // Open confirmation modal
+    setShowDeleteConfirmation(true);
   };
 
   const handleConfirmDelete = () => {
     if (selectedLeads.length > 0) {
-      deleteLeads(selectedLeads); // Delete the selected leads
-      setShowDeleteConfirmation(false); // Close the confirmation modal
-      showSuccessMessage("Lead(s) deleted successfully"); // Show success message
-      resetSelectedLeads(); // Reset the selected leads (clear the count)
+      deleteLeads(selectedLeads);
+      setShowDeleteConfirmation(false);
+      showSuccessMessage("Lead(s) deleted successfully");
+      resetSelectedLeads();
     }
   };
 
@@ -77,31 +77,33 @@ export const FilterBuilder: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4 container bg-white p-4 rounded-md shadow-md sticky top-0 z-10">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex space-x-3">
+    <div className="bg-white p-4 rounded-md shadow-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div className="w-full sm:w-auto">
           <button
             onClick={() => setShowAddFilterModal(true)}
             title="Add Filter"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
             <Plus className="w-4 h-4 inline-block mr-2" />
             Add Filter
           </button>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <button
             onClick={resetFilters}
-            className="p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            className="w-full sm:w-auto p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             title="Reset Filters"
           >
-            <FilterIcon className="w-4 h-4" />
+            <FilterIcon className="w-4 h-4 mx-auto sm:mx-0" />
           </button>
-          <CSVImport onImport={onImportCSV} />
+          <div className="w-full sm:w-auto">
+            <CSVImport onImport={onImportCSV} />
+          </div>
           <button
             onClick={handleDelete}
-            disabled={selectedLeads.length === 0} // Enable/disable based on selectedLeads
-            className={`flex items-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
+            disabled={selectedLeads.length === 0}
+            className={`w-full sm:w-auto flex items-center justify-center px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
               selectedLeads.length === 0
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700"
@@ -139,6 +141,7 @@ export const FilterBuilder: React.FC<Props> = ({
         title="Delete Leads"
         message={`Are you sure you want to delete ${selectedLeads.length} selected lead(s)? This action cannot be undone.`}
       />
+
       {successMessage && (
         <div
           className="fixed top-12 right-4 z-50 bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded shadow"

@@ -209,18 +209,17 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     if (editingLead) {
       setIsSaving(true);
       try {
-        // Create a new object with the updated values
+        // Create a new object with the updated values without lastContact
         const updatedLead = {
-          ...editingLead,
-          // Convert lastContact to Timestamp if it's a Date
-          lastContact:
-            editingLead.lastContact instanceof Date
-              ? Timestamp.fromDate(editingLead.lastContact)
-              : editingLead.lastContact,
+          ...editingLead, // Keep all other fields
+          // lastContact is not included
         };
 
+        // Log the updated lead to the console
+        console.log("Updated Lead:", updatedLead);
+
         // Update the lead
-        await updateLead(updatedLead);
+        await updateLead(updatedLead as Lead); // Ensure updatedLead is of type Lead
 
         // Update the local state
         const updatedLeads = leads.map((lead) =>
@@ -487,10 +486,10 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           </div>
 
           {/* Pagination */}
-          <div className="flex justify-center items-center border-2 w-full">
+          <div className="flex justify-start ml-4 items-center border-2 w-full">
             {/* Results per page selector */}
             <div className="flex items-center">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-400 mr-2">
+              <label className="text-sm p-2 font-medium text-gray-700 dark:text-gray-400 mr-2">
                 Show
               </label>
               <select

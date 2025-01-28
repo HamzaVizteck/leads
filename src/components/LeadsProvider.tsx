@@ -347,10 +347,26 @@ export const LeadsProvider: React.FC<{ children: ReactNode }> = ({
     updateLeadsInFirebase(updatedSavedLeads);
   };
 
+  const fetchLeadsFromFirebase = async () => {
+    if (!currentUser) return;
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData.savedLeads) {
+        setSavedLeads(userData.savedLeads);
+      }
+    }
+  };
+
   const updateLead = async (updatedLead: Lead): Promise<void> => {
+    const leadDocRef = doc(db, "leads", updatedLead.id.toString());
+    await setDoc(leadDocRef, updatedLead);
     setLeads((prev) =>
       prev.map((lead) => (lead.id === updatedLead.id ? updatedLead : lead))
     );
+    await fetchLeadsFromFirebase(); // Re-fetch leads to ensure state is in sync
   };
 
   const updateLeads = (newLeads: Lead[]) => {

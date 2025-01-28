@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Users, Search } from "lucide-react";
 import { EmailTemplate } from "./EmailTemplate";
 import { FilterField } from "../types";
+import { Header } from "./Header";
 
 export const LeadsManagement: React.FC = () => {
   const {
@@ -26,21 +27,19 @@ export const LeadsManagement: React.FC = () => {
 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState("all");
-  const [successMessage, setSuccessMessage] = useState<string | null>(null); // Success message state
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Reset the selection of leads
   const resetSelectedLeads = () => {
-    setSelectedLeads([]); // Reset the selection
+    setSelectedLeads([]);
   };
 
-  // Show success message and auto-clear it after 3 seconds
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(null), 3000); // Clear the message after 3 seconds
+    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleViewChange = (view: string) => {
-    setCurrentView(view); // Update the current view
+    setCurrentView(view);
   };
 
   const handleSelectLeads = (ids: string[]) => {
@@ -50,7 +49,7 @@ export const LeadsManagement: React.FC = () => {
 
   useEffect(() => {
     console.log("LeadsManagement rendered");
-  }, []); // Add an empty dependency array
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -65,52 +64,55 @@ export const LeadsManagement: React.FC = () => {
       />
 
       {/* Main Content */}
-      <div className="flex-1 pl-64 bg-gray-100">
-        <div className="container mx-auto px-4 py-8 pt-20">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8 bg-gray-100 sticky top-0 py-4 z-10 w-full max-w-[1228px] ">
-            <div className="flex items-center">
-              <Users className="w-8 h-8 text-green-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">
-                Leads Management
-              </h1>
-            </div>
+      <div className="flex-1 pl-64 bg-gray-100 flex flex-col h-screen">
+        {/* Fixed Header */}
+        <Header />
 
-            {(currentView === "all" || currentView === "grid") && (
-              <div className="flex items-center gap-4">
-                <div
-                  className={`text-sm px-4 py-2 rounded-md ${
-                    searchQuery ||
-                    filters.some(
-                      (filter) =>
-                        filter.value &&
-                        (typeof filter.value === "string"
-                          ? filter.value.length > 0
-                          : false)
-                    )
-                      ? "bg-green-100 border border-green-400 text-green-700"
-                      : "bg-gray-100 border border-gray-300 text-gray-700"
-                  }`}
-                >
-                  {filteredLeads.length} lead
-                  {filteredLeads.length === 1 ? "" : "s"} found
-                </div>
-                <div className="relative z-20">
-                  <input
-                    type="text"
-                    id="search"
-                    placeholder="Search leads..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                </div>
+        {/* Fixed Leads Management Header */}
+        <div className="fixed top-16 left-64 right-0 bg-gray-100 z-30">
+          <div className="px-6 py-4 border-b max-w-full sm:max-w-[768px] md:max-w-[1024px] lg:max-w-[1228px] mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-center">
+                <Users className="w-8 h-8 text-green-600 mr-3" />
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+                  Leads Management
+                </h1>
               </div>
-            )}
-          </div>
 
+              {(currentView === "all" || currentView === "grid") && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div
+                    className={`text-sm px-4 py-2 rounded-md ${
+                      searchQuery ||
+                      filters.some(
+                        (filter) =>
+                          filter.value &&
+                          (typeof filter.value === "string"
+                            ? filter.value.length > 0
+                            : false)
+                      )
+                        ? "bg-green-100 border border-green-400 text-green-700"
+                        : "bg-gray-100 border border-gray-300 text-gray-700"
+                    }`}
+                  >
+                    {filteredLeads.length} lead
+                    {filteredLeads.length === 1 ? "" : "s"} found
+                  </div>
+                  <div className="relative w-full sm:w-auto">
+                    <input
+                      type="text"
+                      id="search"
+                      placeholder="Search leads..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                    <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           {/* Success Message */}
           {successMessage && (
             <div
@@ -120,10 +122,12 @@ export const LeadsManagement: React.FC = () => {
               {successMessage}
             </div>
           )}
+        </div>
 
-          {/* Filter Builder */}
-          {currentView !== "email" && (
-            <div className="mb-8 w-full  max-w-[1228px] ">
+        {/* Fixed Filter Builder */}
+        {currentView !== "email" && (
+          <div className="fixed top-32 left-64 right-0 bg-gray-100 z-20">
+            <div className="px-6 py-4 border-b max-w-full sm:max-w-[768px] md:max-w-[1024px] lg:max-w-[1228px] mx-auto">
               <FilterBuilder
                 filters={filters}
                 onAddFilter={(filter) => {
@@ -145,24 +149,29 @@ export const LeadsManagement: React.FC = () => {
                 leads={filteredLeads}
               />
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Conditional rendering for email view */}
-          {currentView === "email" ? (
-            <div className="email-view">
-              <EmailTemplate leads={filteredLeads} />
-            </div>
-          ) : (
-            <div className="overflow-x-auto max-w-full">
-              <LeadTable
-                leads={filteredLeads}
-                selectedLeads={selectedLeads}
-                onSelectLeads={handleSelectLeads}
-                onViewChange={handleViewChange}
-                onSuccessMessage={showSuccessMessage} // Pass success message handler
-              />
-            </div>
-          )}
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-auto h-[calc(100vh-16rem)] mt-32">
+          <div className="px-6">
+            {/* Conditional rendering for email view */}
+            {currentView === "email" ? (
+              <div className="email-view">
+                <EmailTemplate leads={filteredLeads} />
+              </div>
+            ) : (
+              <div className="overflow-auto mt-32">
+                <LeadTable
+                  leads={filteredLeads}
+                  selectedLeads={selectedLeads}
+                  onSelectLeads={handleSelectLeads}
+                  onViewChange={handleViewChange}
+                  onSuccessMessage={showSuccessMessage}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
